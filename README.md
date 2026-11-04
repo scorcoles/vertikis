@@ -832,7 +832,7 @@ Cuando lanzas un vertiki contra los demás, suena un «toc» grave y muy suave e
 
 Así que solo escuchamos al que **has lanzado**, y solo durante 1,5 segundos:
 
-1. Al soltarlo, si iba rápido (más de 3 píxeles por fotograma), le apuntamos `thrownUntil` = ahora + 1500 ms, y la lista de vertikis que ya estaba tocando.
+1. Al soltarlo, si iba algo rápido (más de 2 píxeles por fotograma), le apuntamos `thrownUntil` = ahora + 1500 ms, y la lista de vertikis que ya estaba tocando.
 2. En cada fotograma miramos a quién toca ahora. Si toca a uno que **antes no tocaba**, es un choque nuevo: suena.
 3. El volumen depende de la **velocidad con la que se acercan** los dos: un roce casi no se oye y un buen golpe, algo más (pero nunca mucho).
 

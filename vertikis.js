@@ -578,10 +578,10 @@ const createSound = (size) => tone(220 - Math.min(100, size / 2), 720 - Math.min
 let lastBump = 0;
 function bump(speed, size) {
   const now = performance.now();
-  if (speed < 2 || now - lastBump < 60) return;
+  if (speed < 1.3 || now - lastBump < 60) return;
   lastBump = now;
   const f = Math.max(90, Math.min(260, 16000 / size));
-  tone(f, f * 0.6, 0.09, Math.min(0.08, speed * 0.006));
+  tone(f, f * 0.6, 0.09, Math.min(0.1, speed * 0.0075));
 }
 
 // =========================================================================================
@@ -710,7 +710,7 @@ canvas.addEventListener('pointerleave', () => {
 
 function release() {
   // Si sale lanzado con fuerza, sus choques suenan durante 1,5 s (paso 15).
-  if (grabbed && Math.hypot(grabbed.vx, grabbed.vy) > 3) {
+  if (grabbed && Math.hypot(grabbed.vx, grabbed.vy) > 2) {
     const g = grabbed;
     g.thrownUntil = performance.now() + 1500;
     g.touching = new Set(cells.filter((k) => k !== g && Math.hypot(k.cx - g.cx, k.cy - g.cy) <= (k.r + g.r) * 0.92));
