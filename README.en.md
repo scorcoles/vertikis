@@ -1,0 +1,1042 @@
+# vertikis
+
+[Español](README.md) · **English**
+
+Soft, colourful creatures with faces that fall, push each other, squash when they collide, and that you can drag, pop and create. All with a `<canvas>`, plain JavaScript and no libraries.
+
+**Demo:** [scorcoles.github.io/vertikis](https://scorcoles.github.io/vertikis/) · also at [vertik.net/vertikis](https://www.vertik.net/vertikis/)
+
+- **Drag** a vertiki to move it and throw it.
+- **Double-click** (or double-tap) a vertiki: it pops.
+- **Double-click an empty spot**: a new one is born. For 2 seconds it can't be popped; if you tap it, it grows 15 %… and if it grows too much, it bursts.
+- **On a phone**, tilt it: gravity follows the tilt.
+
+An experiment by [VERTIK](https://www.vertik.net). A tribute to the yugop.com home page (Yugo Nakamura, 2005).
+
+And a **step-by-step tutorial** to learn how to build it from scratch, with a working page for every step: [start here](#tutorial).
+
+---
+
+## How to run it
+
+There's nothing to install. Download the repo and **double-click `index.html`**. That's it.
+
+If you'd rather serve it (to try it on your phone over your home network, for example), from the project folder:
+
+```bash
+python3 -m http.server 8000
+# and open http://localhost:8000
+```
+
+What's in the repo:
+
+| File | What it is |
+| --- | --- |
+| `index.html` | The page: a `<canvas>` and the footer with the credits. |
+| `style.css` | Makes the canvas fill the window, plus the cursor and the footer. |
+| `vertikis.js` | Everything else. Its sections carry the number of the tutorial step that explains them (its comments are in Spanish; the English version is [`steps/en/16.html`](steps/en/16.html)). |
+| `steps/es/` · `steps/en/` | One page per tutorial step (`01.html` … `16.html`), in Spanish and in English. Each one opens with a double-click and works on its own. |
+| `src/` · `tools/` | Only for whoever changes the code: see [For maintainers](#for-maintainers). |
+
+---
+
+<a id="tutorial"></a>
+
+# Tutorial: how the vertikis are made, step by step
+
+This tutorial is meant for someone who knows very little programming. We go slowly: each step adds **just one idea**. At the end of each step I tell you what you should see if you try it.
+
+**Every step has its own page**, with the complete code up to that point: open it to see how things are coming along, and look at its code (right-click → «View page source», or open it in your editor) to see exactly what changed since the previous step. They live in [`steps/en/`](steps/en/), and online at `scorcoles.github.io/vertikis/steps/en/01.html`, `02.html`…
+
+A tip before we start: you don't need to understand all the maths. It's almost all additions, subtractions and multiplications. When something stranger shows up (a sine, a cosine), I'll tell you what it's for and you can treat it as a black box.
+
+**Contents**
+
+1. [The stage: a canvas](#step-1)
+2. [The loop: drawing 60 times a second](#step-2)
+3. [The vertiki object: a ring of points](#step-3)
+4. [Moving: inertia, friction and gravity](#step-4)
+5. [The edges: keeping them on screen](#step-5)
+6. [Keeping the shape: the «shape matching» trick](#step-6)
+7. [Lots of vertikis](#step-7)
+8. [Collisions between vertikis](#step-8)
+9. [Substeps: steadier physics](#step-9)
+10. [Colour and a little light](#step-10)
+11. [The pointer: dragging and throwing](#step-11)
+12. [The face](#step-12)
+13. [Popping](#step-13)
+14. [Birth and growth](#step-14)
+15. [Sound, without audio files](#step-15)
+16. [On the phone: tilting it](#step-16)
+17. [Ideas to keep playing](#step-17)
+
+---
+
+<a id="step-1"></a>
+
+## Step 1 · The stage: a canvas
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/01.html) · [code](steps/en/01.html)
+
+### What we want
+
+A blank sheet that fills the whole window, where we can draw whatever we like with code.
+
+### The idea
+
+A `<canvas>` is exactly that: a rectangle of pixels you draw on from JavaScript, as if you had a brush. There are no «objects» inside it: if you draw a circle, the canvas only remembers the pixels you painted. To move it, you have to **clear and draw again** (we'll see that in step 2).
+
+### The code
+
+In the HTML, just this:
+
+```html
+<canvas data-cells></canvas>
+<script src="vertikis.js"></script>
+```
+
+In the CSS we make it fill the window and remove scrolling:
+
+```css
+html, body { margin: 0; height: 100%; overflow: hidden; background: #fff; }
+canvas     { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; }
+```
+
+`touch-action: none` matters on phones: without it, dragging a finger across the canvas would scroll or zoom the page instead of letting us move the vertikis.
+
+In JavaScript we grab the canvas and its «brush», which is called the **context**:
+
+```js
+const canvas = document.querySelector('[data-cells]');
+const ctx = canvas.getContext('2d');
+```
+
+### The retina detail
+
+A canvas has **two sizes**: the space it takes up on the page (set by the CSS) and how many pixels it has inside (`canvas.width` and `canvas.height`). If they don't match, it looks blurry.
+
+On retina screens each «CSS pixel» is 2 real pixels. So we make the inside of the canvas twice as big and tell the brush to multiply everything by 2. That way we keep thinking in normal CSS pixels and it looks sharp:
+
+```js
+let W = 0;
+let H = 0;
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2); // 1 or 2
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // «multiply everything by dpr»
+}
+
+window.addEventListener('resize', resize);
+resize();
+```
+
+`W` and `H` are the width and height of the stage. We'll use them all the time.
+
+### Try it
+
+Add at the end:
+
+```js
+ctx.fillStyle = 'tomato';
+ctx.beginPath();
+ctx.arc(200, 200, 80, 0, Math.PI * 2); // circle at (200, 200), radius 80
+ctx.fill();
+```
+
+You should see a red circle. On the canvas, **x** grows to the right and **y** grows **downwards** (the opposite of school maths). The point (0, 0) is the top-left corner.
+
+---
+
+<a id="step-2"></a>
+
+## Step 2 · The loop: drawing 60 times a second
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/02.html) · [code](steps/en/02.html)
+
+### What we want
+
+To make things move.
+
+### The idea
+
+An animation is a sequence of still drawings, like a flipbook. On each «frame»:
+
+1. we work out where everything is now,
+2. we clear the canvas,
+3. we draw everything again.
+
+The browser tells us when it's a good moment to draw the next frame with `requestAnimationFrame` (usually about 60 times a second):
+
+```js
+function frame() {
+  // 1. compute  (we'll fill this in over the next steps)
+  // 2 and 3. clear and draw
+  draw();
+  requestAnimationFrame(frame); // «call me again on the next frame»
+}
+
+requestAnimationFrame(frame);
+```
+
+And `draw()` always starts by clearing:
+
+```js
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  // … draw everything …
+}
+```
+
+### Try it
+
+```js
+let x = 0;
+function frame() {
+  x += 2;                         // every frame, 2 pixels further right
+  ctx.clearRect(0, 0, W, H);
+  ctx.beginPath();
+  ctx.arc(x, 200, 80, 0, Math.PI * 2);
+  ctx.fill();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+```
+
+The circle crosses the screen. Try removing the `clearRect`: you'll see it leaves a trail, because the canvas never «forgets» what you painted.
+
+---
+
+<a id="step-3"></a>
+
+## Step 3 · The vertiki object: a ring of points
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/03.html) · [code](steps/en/03.html)
+
+### What we want
+
+Something that looks like a circle but can **deform**, like a water balloon.
+
+### The idea
+
+A circle drawn with `arc` is rigid: it's always a perfect circle. So we cheat: a vertiki is a **ring of 28 points** laid out in a circle. If we move the points, the shape changes. Then we draw a smooth curve through them.
+
+```
+        ·  ·  ·
+     ·           ·
+    ·      +      ·     ← 28 points around a centre (+)
+     ·           ·
+        ·  ·  ·
+```
+
+### Placing points on a circle
+
+Here come cosine and sine. For our purposes: if you walk all the way round a circle of radius 1, at angle `a` you are at the point `(cos(a), sin(a))`. That's all.
+
+We compute the «circle of radius 1» once (we call it `UNIT`) and then each vertiki multiplies it by its own radius:
+
+```js
+const POINTS = 28;
+const UNIT = new Float32Array(POINTS * 2); // [x0, y0, x1, y1, …]
+for (let i = 0; i < POINTS; i++) {
+  const a = (i / POINTS) * Math.PI * 2;    // this point's angle (a full turn = 2π)
+  UNIT[i * 2] = Math.cos(a);
+  UNIT[i * 2 + 1] = Math.sin(a);
+}
+```
+
+`Float32Array` is like a normal array but only for numbers, and faster. Don't worry about it: use it like an array.
+
+### The object
+
+Each vertiki is a JavaScript object with its radius and the positions of its points. This is the minimal version (we'll keep adding things to it in the next steps):
+
+```js
+function makeCell(cx, cy, r) {
+  const x = new Float32Array(POINTS);
+  const y = new Float32Array(POINTS);
+  for (let i = 0; i < POINTS; i++) {
+    x[i] = cx + UNIT[i * 2] * r;
+    y[i] = cy + UNIT[i * 2 + 1] * r;
+  }
+  return { r, x, y, px: x.slice(), py: y.slice(), cx, cy };
+}
+```
+
+We keep the `x`s in one array and the `y`s in another. `px` and `py` are a copy: «where each point was before». We'll use them in step 4.
+
+### Drawing a smooth outline
+
+If we join the points with straight lines we get a 28-sided polygon. To make it round we use a classic trick: we draw curves that **go through the midpoint between two points** and use the point itself as the curve's «magnet» (`quadraticCurveTo`):
+
+```js
+ctx.beginPath();
+ctx.moveTo((c.x[POINTS - 1] + c.x[0]) / 2, (c.y[POINTS - 1] + c.y[0]) / 2);
+for (let i = 0; i < POINTS; i++) {
+  const j = (i + 1) % POINTS; // the next point (after the last one, back to 0)
+  ctx.quadraticCurveTo(c.x[i], c.y[i], (c.x[i] + c.x[j]) / 2, (c.y[i] + c.y[j]) / 2);
+}
+ctx.fill();
+```
+
+### Try it
+
+On the step 3 page you'll see a grey circle with its 28 points marked. Try typing `cells[0].x[0] += 60` into the browser console: it grows a bump. Now we have something deformable.
+
+---
+
+<a id="step-4"></a>
+
+## Step 4 · Moving: inertia, friction and gravity
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/04.html) · [code](steps/en/04.html)
+
+### What we want
+
+For the points to move by themselves, like real things: to fall, to have momentum and to slow down.
+
+### The idea: Verlet
+
+Usually, to move something you store its position and its velocity. There's a simpler, more stable method called **Verlet integration**: you don't store the velocity. You store **where it was before** (`px`, `py`) and **where it is now** (`x`, `y`). The velocity is the difference:
+
+```
+velocity = now − before
+```
+
+On every step:
+
+1. work out the velocity (`now − before`),
+2. multiply it by something less than 1 (that's **friction**: it slows down),
+3. note that «before» is now «now»,
+4. move the point: `now += velocity + gravity`.
+
+```js
+const FRICTION = 0.96; // keeps 96 % of the velocity on each step
+const GRAVITY = 0.45;  // a push downwards on each step
+
+for (let i = 0; i < POINTS; i++) {
+  const vx = (c.x[i] - c.px[i]) * FRICTION;
+  const vy = (c.y[i] - c.py[i]) * FRICTION;
+  c.px[i] = c.x[i];
+  c.py[i] = c.y[i];
+  c.x[i] += vx;
+  c.y[i] += vy + GRAVITY;
+}
+```
+
+Gravity is just a **little push downwards** on each step. Since it adds up, things fall faster and faster. Since friction slows them, they don't speed up forever.
+
+The big advantage of Verlet: if you move a point «by hand» (because it collides, or because you drag it), the velocity adjusts itself, because it's computed from the positions.
+
+### Try it
+
+Put this loop inside `frame()`, before `draw()`. The vertiki falls… and drops off the bottom of the screen. We'll fix that right away.
+
+---
+
+<a id="step-5"></a>
+
+## Step 5 · The edges: keeping them on screen
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/05.html) · [code](steps/en/05.html)
+
+### What we want
+
+For the window to be a box: floor, ceiling and walls.
+
+### The idea
+
+After moving the points, we check each one. If it's gone outside, we put it back on the edge. Easy:
+
+```js
+for (let i = 0; i < POINTS; i++) {
+  if (c.x[i] < 0) c.x[i] = 0;
+  if (c.x[i] > W) c.x[i] = W;
+  if (c.y[i] < 0) c.y[i] = 0;
+  if (c.y[i] > H) c.y[i] = H;
+}
+```
+
+### A bit of friction
+
+With only that, a vertiki landing on the floor slides as if on ice. To make it slow down when it touches the floor, we reduce its velocity **along the edge**. With Verlet you do that by moving the «before» position closer to «now» (remember: the velocity is the difference between the two):
+
+```js
+if (c.y[i] < 0 || c.y[i] > H) {
+  c.y[i] = c.y[i] < 0 ? 0 : H;
+  c.px[i] = c.x[i] - (c.x[i] - c.px[i]) * 0.6; // keep only 60 % of the sliding
+}
+```
+
+We do it on all four edges, because on a phone, when you tilt it, any edge can become the floor (step 16).
+
+### Try it
+
+The vertiki falls and stays on the floor. But… it ends up **squashed flat as a pancake**: the bottom points stop at the floor and the top ones keep falling onto them. Nothing tells it that it should be round. That's the most important step, the next one.
+
+---
+
+<a id="step-6"></a>
+
+## Step 6 · Keeping the shape: the «shape matching» trick
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/06.html) · [code](steps/en/06.html)
+
+### What we want
+
+For the vertiki to deform when it collides, but **always try to become round again**, like a water balloon.
+
+### The idea
+
+On every step we do three things:
+
+1. **Where is it?** We work out its centre: the average of all its points.
+2. **How far has it turned?** If it has rolled, the resting shape must be turned by the same amount (otherwise, when rolling, it would «unscrew» itself).
+3. **Pull towards the ideal shape.** We place the resting shape (the circle with its radius) at that centre and with that rotation, and move each point **a little** towards where it should be.
+
+```
+   current shape (squashed)          ideal shape at the same centre
+        _______                              .-~~~-.
+      /         \          →               /         \
+     |_____+_____|                        |     +     |
+                                           \         /
+                                             '-...-'
+   each point takes a small step towards its place in the ideal shape
+```
+
+This technique is called **shape matching**.
+
+### 1. The centre
+
+```js
+let sx = 0, sy = 0;
+for (let i = 0; i < POINTS; i++) { sx += c.x[i]; sy += c.y[i]; }
+c.cx = sx / POINTS;
+c.cy = sy / POINTS;
+```
+
+### 2. The rotation
+
+This is the most mathematical part of the whole project. The idea, without formulas: we compare each point with its twin in the resting shape and add up «how alike they are» (`dot`) and «how much one is turned relative to the other» (`cross`). `Math.atan2(cross, dot)` turns those two sums into the rotation angle that fits best.
+
+```js
+let dot = 0, cross = 0;
+for (let i = 0; i < POINTS; i++) {
+  const qx = UNIT[i * 2] * c.r;        // where the point is in the resting shape
+  const qy = UNIT[i * 2 + 1] * c.r;
+  const rx = c.x[i] - c.cx;            // where it is now, relative to the centre
+  const ry = c.y[i] - c.cy;
+  dot += qx * rx + qy * ry;
+  cross += qx * ry - qy * rx;
+}
+c.angle = Math.atan2(cross, dot);
+```
+
+If this goes over your head, that's fine: treat it as a function that tells you «how far the vertiki has turned». It's in `fitShape()`.
+
+### 3. Pulling towards the shape
+
+To rotate a point `(qx, qy)` by an angle, there's this recipe (also a black box if you like): `x' = qx·cos − qy·sin` and `y' = qx·sin + qy·cos`.
+
+```js
+const STIFFNESS = 0.45; // how close each point gets to its place on each step
+const cos = Math.cos(c.angle);
+const sin = Math.sin(c.angle);
+for (let i = 0; i < POINTS; i++) {
+  const qx = UNIT[i * 2] * c.r;
+  const qy = UNIT[i * 2 + 1] * c.r;
+  const gx = c.cx + qx * cos - qy * sin; // this point's ideal place
+  const gy = c.cy + qx * sin + qy * cos;
+  c.x[i] += (gx - c.x[i]) * STIFFNESS;   // 45 % of the way
+  c.y[i] += (gy - c.y[i]) * STIFFNESS;
+}
+```
+
+`STIFFNESS` is **how firm** the vertiki is. Play with it:
+
+- `0.05`: jelly, it stays deformed for a long time.
+- `0.45`: what we use, soft but firm.
+- `1`: rigid as a billiard ball.
+
+### Try it
+
+Now the vertiki falls, squashes a tiny bit against the floor, bounces slightly and settles there, nice and round. This is the heart of the whole project: everything else is detail.
+
+---
+
+<a id="step-7"></a>
+
+## Step 7 · Lots of vertikis
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/07.html) · [code](steps/en/07.html)
+
+### What we want
+
+To fill the screen.
+
+### The idea
+
+We keep them all in an array called `cells` (that's what we called them at first) and in the physics and drawing we do `for (const c of cells) { … }`.
+
+For the starting layout (`populate()`), we try random positions and sizes until about **half the screen** is covered. If a new vertiki lands too much on top of another, we throw that position away and try another:
+
+```js
+function populate() {
+  cells = [];
+  const unit = Math.min(W, H);   // the short side of the screen
+  const target = W * H * 0.5;    // we want to cover half
+  let area = 0;
+  for (let tries = 0; tries < 6000 && area < target; tries++) {
+    const r = unit * (0.09 + Math.random() ** 1.3 * 0.12);
+    const cx = r * 0.6 + Math.random() * (W - r * 1.2);
+    const cy = r * 0.6 + Math.random() * (H - r * 1.2);
+    if (cells.some((c) => Math.hypot(c.cx - cx, c.cy - cy) < (c.r + r) * 0.82)) continue;
+    cells.push(makeCell(cx, cy, r));
+    area += Math.PI * r * r;
+  }
+}
+```
+
+A few tricks:
+
+- The sizes depend on the **short side of the screen**, so they look right on a phone and on a big monitor.
+- `Math.random() ** 1.3` gives more small numbers than big ones: there are more medium vertikis than giants.
+- `Math.hypot(dx, dy)` is the distance between two points (Pythagoras).
+- That `0.82` lets them **overlap a little** at first. So when it starts, they push each other and end up packed together, which looks nicer.
+
+### Try it
+
+You'll see lots of vertikis falling… and **passing through** each other like ghosts. Nobody has told them to collide.
+
+---
+
+<a id="step-8"></a>
+
+## Step 8 · Collisions between vertikis
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/08.html) · [code](steps/en/08.html)
+
+### What we want
+
+For them to push, pile up and flatten a little where they touch.
+
+### The idea, in two parts
+
+**8a · Point collisions.** For each point of a vertiki A, we check whether it's inside another vertiki B (we treat B as a circle, which is easier). If it is, we push it out, in the direction from B's centre to the point:
+
+```js
+const R = B.r * 0.96;
+for (let i = 0; i < POINTS; i++) {
+  const dx = A.x[i] - B.cx;
+  const dy = A.y[i] - B.cy;
+  const d = Math.hypot(dx, dy);            // distance from the point to B's centre
+  if (d >= R || d === 0) continue;         // outside B: nothing to do
+  const push = (R - d) * 0.5;              // how far it got in (half of it, to go gently)
+  A.x[i] += (dx / d) * push;               // (dx/d, dy/d) is the «outwards» direction
+  A.y[i] += (dy / d) * push;
+}
+```
+
+Since only the points that get in are moved, **they flatten where they touch**, like two balloons squeezed together. Then step 6 tries to round them again. That tug-of-war is what makes them look soft.
+
+To avoid comparing every point with every vertiki on screen (slow), we first check whether the two vertikis are close. If not, we skip the pair.
+
+**8b · Separating whole vertikis.** With only 8a, if a small one falls very fast onto a big one, it sometimes gets inside it and stays there. So we add a blunter rule: if **two centres** are closer than their sizes allow, we push both whole vertikis apart, each one to its side.
+
+- We leave a 12 % margin (`(A.r + B.r) * 0.88`) so they still squash where they touch.
+- **They weigh according to their size**: the big one moves a little and the small one a lot.
+- From step 11, the one you're dragging weighs 6 times more, so you can shove the others aside with it.
+
+### Try it
+
+Now they pile up like a mountain of water balloons, squashed where they touch.
+
+---
+
+<a id="step-9"></a>
+
+## Step 9 · Substeps: steadier physics
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/09.html) · [code](steps/en/09.html)
+
+### What we want
+
+For them not to jitter or pass through each other when they move fast.
+
+### The idea
+
+If something moves very fast, in a single step it can go through another without «seeing» it. The fix is simple: on each frame we do **4 small physics steps** instead of one big one.
+
+```js
+const SUBSTEPS = 4;
+for (let s = 0; s < SUBSTEPS; s++) step();
+draw();
+```
+
+All the physics (steps 4, 5, 6 and 8) lives inside `step()`. It costs 4 times more to compute, but with a few dozen vertikis that's no problem.
+
+---
+
+<a id="step-10"></a>
+
+## Step 10 · Colour and a little light
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/10.html) · [code](steps/en/10.html)
+
+### What we want
+
+Cheerful colours and a hint of volume, without them looking like plastic.
+
+### The idea
+
+A palette of flat, slightly muted colours, and each vertiki picks one at random:
+
+```js
+const PALETTE = ['#f29e4c', '#f2c14e', '#4fb3a9', '#ef7aa1', '#6c9bd2', '#9ccc5a', '#4caf72', '#9b86c9', '#f0806c'];
+```
+
+To give them volume, we fill them with a **very soft radial gradient**: a little lighter at the top left (as if the light came from there) and a little darker on the opposite edge. The `tint()` function mixes a colour with white (for the light one) or with black (for the dark one).
+
+```js
+const g = ctx.createRadialGradient(
+  c.cx - c.r * 0.35, c.cy - c.r * 0.4, c.r * 0.05, // small circle: where the light hits
+  c.cx, c.cy, c.r * 1.25                            // big circle: out to the edge
+);
+g.addColorStop(0, c.light);
+g.addColorStop(0.55, c.color);
+g.addColorStop(1, c.shade);
+ctx.fillStyle = g;
+```
+
+The trick is to use **very little**: just 16 % towards white and 6 % towards black. Overdo it and they look like Christmas baubles.
+
+### An organic touch
+
+A perfect circle looks very computer-made. From this step on, the resting shape is **very slightly oval** (between 2 % and 6 %, the value `e`) and turned at random. You barely notice it, but it makes them look alive. That's why, from here on, `makeCell`, `fitShape` and `step` multiply the radius by `(1 + e)` along one axis and by `(1 − e)` along the other.
+
+---
+
+<a id="step-11"></a>
+
+## Step 11 · The pointer: dragging and throwing
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/11.html) · [code](steps/en/11.html)
+
+### Pointer events
+
+We use **pointer events** (`pointerdown`, `pointermove`, `pointerup`), which work the same with a mouse, a finger or a pen. That way we write the code once for desktop and mobile.
+
+### Which vertiki is here?
+
+```js
+function cellAt(x, y) {
+  for (let k = cells.length - 1; k >= 0; k--) {     // from the last to the first
+    const c = cells[k];
+    if (Math.hypot(x - c.cx, y - c.cy) <= c.r) return c;
+  }
+  return null;
+}
+```
+
+We go backwards because the last ones are drawn on top: if two overlap, the top one wins.
+
+### Dragging
+
+When you press on a vertiki we store it in `grabbed`, and on each physics step we **move it towards the pointer** (35 % of the way). The subtle trick: we also move its «before» position almost as much. That way it doesn't build up speed while you drag it (otherwise it would shake), but it keeps 30 % of its momentum: **when you let go, it flies off** in the direction you were moving it.
+
+```js
+const dx = (pointer.x - grabOffset.x - c.cx) * 0.35;
+const dy = (pointer.y - grabOffset.y - c.cy) * 0.35;
+for (let i = 0; i < POINTS; i++) {
+  c.x[i] += dx;
+  c.y[i] += dy;
+  c.px[i] += dx * 0.7; // «before» moves 70 %: 30 % of the speed is left
+  c.py[i] += dy * 0.7;
+}
+```
+
+`grabOffset` remembers **where you picked it up** (by the edge or by the middle), so it doesn't jump.
+
+Other details: while you drag it, it's damped more (friction 0.6) so it doesn't wobble, it's drawn on top of all the others, and we use `setPointerCapture` to keep receiving the movement even if the pointer leaves the canvas.
+
+### The cursor
+
+In CSS we show a hand over a vertiki (and, from step 14, a «+» on empty spots, because a double-click there creates one). On every frame we check what's under the mouse (`updateHover()`), because vertikis move even when the mouse is still, and we add or remove a class on the canvas. The smile will use that same `hovered` in the next step.
+
+---
+
+<a id="step-12"></a>
+
+## Step 12 · The face
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/12.html) · [code](steps/en/12.html)
+
+This is the part that gives them personality. The face is three strokes (two eyes and a mouth), but with a few details that make them feel alive.
+
+### Drawing in the vertiki's «space»
+
+So we don't have to work out where each eye lands on screen, we move the brush to the vertiki's centre and draw there, as if its centre were (0, 0):
+
+```js
+ctx.save();                 // save the brush state
+ctx.translate(c.cx, c.cy);  // now (0, 0) is the vertiki's centre
+// … draw eyes and mouth …
+ctx.restore();              // back to how it was
+```
+
+Everything is measured **relative to the radius** (`s = c.r`): the eye is `s * 0.22` from the centre. So a big vertiki has a big face and a small one, a small face.
+
+### Turning, but only a little
+
+If the face turned exactly like the body, it would end up upside down when rolling. If it didn't turn at all, it would look stuck on top. We make it turn **35 %** of what the body turns, counting from the rotation it was born with (`c.base`):
+
+```js
+const turned = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base));
+ctx.rotate(turned * 0.35);
+```
+
+(That `atan2(sin, cos)` is just a way of keeping the angle between −180° and 180°.)
+
+### The eyes follow the pointer
+
+We work out the direction from the vertiki to the mouse and shift the eyes a little that way (3.5 % of the radius at most). So they don't jump, they **move gradually** towards where they should look:
+
+```js
+c.lookX += (lx - c.lookX) * 0.15; // every frame, 15 % of the way
+```
+
+This pattern, `value += (target − value) * 0.15`, shows up many times in the project. It's the simplest way to **smooth** anything: it moves quickly at first and slowly at the end.
+
+### They blink
+
+Each vertiki notes when it's due to blink (`blinkAt`). For 130 ms the eye squashes vertically and opens again. Then it picks the next blink 2 to 6 seconds later (and sometimes, 20 % of the time, a quick double blink). Since each has its own rhythm, they never all blink at once.
+
+### The springy smile
+
+The mouth is an arc. When you hover, it smiles more: the arc dips. But instead of changing at once, we use a **spring**: the smile has a value (`smile`, from 0 to 1) and a velocity (`smileV`):
+
+```js
+const want = c === hovered || c === grabbed ? 1 : 0;      // where it wants to go
+c.smileV = (c.smileV + (want - c.smile) * 0.22) * 0.68;   // speed up towards it, and brake
+c.smile += c.smileV;
+```
+
+It overshoots a little and comes back: a tiny ~0.3 s bounce. A small detail you really notice.
+
+### Reactions
+
+- **Fright («o»)**: when you pop a vertiki (you'll see it in step 13), its neighbours make an «o» mouth and open their eyes wide for 0.7 s.
+- **Squeezed eyes «> <»**: if a vertiki changes speed suddenly (a hard knock), it squeezes its eyes shut for 0.3 s. We detect it by comparing how far its centre moved in this frame and in the previous one.
+
+Both work the same way: we store «until when» (`surprisedUntil`, `squintUntil`) and when drawing we check whether that time hasn't arrived yet.
+
+---
+
+<a id="step-13"></a>
+
+## Step 13 · Popping
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/13.html) · [code](steps/en/13.html)
+
+### What we want
+
+For it to pop like a balloon: «pop!», some droplets flying out and a ring.
+
+### A home-made double-click
+
+The browser has a `dblclick` event, but it isn't reliable on phones. So we detect it ourselves: if a press comes **less than 320 ms** after the previous one and **less than 30 px** away, it's a double-click.
+
+```js
+const double = now - lastDown.t < 320 && Math.hypot(e.clientX - lastDown.x, e.clientY - lastDown.y) < 30;
+```
+
+If there's a vertiki under it, it pops. On an empty spot nothing happens yet: that's where they'll be born in step 14.
+
+### The idea
+
+1. We remove the vertiki from the `cells` array.
+2. We create a few **droplets** (more the bigger it was) around its edge, with a velocity outwards and a little upwards.
+3. We create a **ring**: a circle that grows and fades.
+4. We startle the neighbours (step 12) and play the pop (step 15).
+
+The droplets are the simplest thing in the whole project: position, velocity, gravity and a «life» that goes from 1 down to 0. When we draw them, their size is `radius * life`, so they shrink until they disappear:
+
+```js
+for (const d of drops) {
+  d.vy += 0.35;     // gravity
+  d.vx *= 0.98;     // a little air resistance
+  d.x += d.vx;
+  d.y += d.vy;
+  d.life -= 0.025;  // 40 frames of life
+}
+drops = drops.filter((d) => d.life > 0);  // out with the dead ones
+```
+
+The ring is the same: a value `t` from 0 to 1. The radius grows with `t`, and the opacity (`globalAlpha`) and thickness go down with it.
+
+---
+
+<a id="step-14"></a>
+
+## Step 14 · Birth and growth
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/14.html) · [code](steps/en/14.html)
+
+### What we want
+
+For a new vertiki not to appear all at once, but to **be born small and inflate**. And, while we're at it, to make the game a bit livelier.
+
+### Growing
+
+A double-click on an empty spot (what we left pending in step 13) calls `spawn()`, which creates a vertiki with a radius of just 15 % of its final one, and notes its final size in `target`. On every frame, the radius moves towards the target with the smoothing pattern from step 12:
+
+```js
+c.r += (c.target - c.r) * 0.2;
+```
+
+Since the radius is what the resting shape uses (step 6), the points push outwards and the vertiki **inflates, pushing its neighbours aside**. For free, without extra code.
+
+### The first 2 seconds
+
+A newborn is delicate… but not that delicate:
+
+- For **2 seconds** (`youngUntil`) it can't be popped.
+- If you tap it during that time, **it grows 15 %** and the countdown starts again (`feed()`).
+- If it goes past a certain size (34 % of the short side of the screen), **it bursts**. That way the screen doesn't fill up with giants.
+
+```js
+function feed(c) {
+  const next = (c.target ?? c.r) * 1.15;
+  if (next > Math.min(W, H) * 0.34) {
+    pop(c);
+    return;
+  }
+  c.target = next;
+  c.youngUntil = performance.now() + 2000;
+}
+```
+
+(`a ?? b` means «`a`, or `b` if it has no value».)
+
+`performance.now()` gives the milliseconds since the page opened. We always use it to measure time: «until when» is «now + 2000».
+
+---
+
+<a id="step-15"></a>
+
+## Step 15 · Sound, without audio files
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/15.html) · [code](steps/en/15.html)
+
+None of the sounds in the project is a file. They're all **made on the spot** with the Web Audio API, which is like having a small synthesiser inside the browser.
+
+### The cables
+
+Web Audio works like a recording studio with cables: you create «devices» (nodes) and plug them into each other, all the way to the speakers.
+
+```
+oscillator (the tone)  →  gain (the volume)  →  master volume  →  speakers
+```
+
+### First, permission
+
+Browsers **won't play anything until the user touches the page** (so websites can't ambush you with noise). So we create the audio system on the first `pointerdown`:
+
+```js
+let audio = null;
+let master = null;
+
+function ac() {
+  if (!audio) {
+    audio = new AudioContext();            // the «studio»
+    master = audio.createGain();           // the overall volume of everything
+    master.gain.value = 0.66;
+    master.connect(audio.destination);     // destination = the speakers
+  }
+  if (audio.state === 'suspended') audio.resume();
+  return audio;
+}
+```
+
+Everything goes through `master`. If you want to turn all the sounds up or down at once, you change a single number.
+
+### A tone: the oscillator
+
+An **oscillator** generates a wave: a continuous beep. We give it a frequency (low or high, in hertz) and we can make it change over time, from `from` to `to`. That's a «sweep», and it's what makes it sound like a bubble.
+
+### Not a beep: the envelope
+
+A tone that starts and stops abruptly makes a «click» and sounds like a computer. So we control the volume with an **envelope**: it rises very fast (8 milliseconds) and then fades away gradually.
+
+```js
+function tone(from, to, dur, vol, type = 'sine') {
+  const a = ac();
+  const t = a.currentTime;                                  // «now», on the audio clock
+  const osc = a.createOscillator();
+  osc.type = type;                                          // 'sine' (soft), 'triangle'…
+  osc.frequency.setValueAtTime(from, t);
+  osc.frequency.exponentialRampToValueAtTime(to, t + dur);  // frequency sweep
+  const gain = a.createGain();
+  gain.gain.setValueAtTime(0.0001, t);                      // start in silence
+  gain.gain.exponentialRampToValueAtTime(vol, t + 0.008);   // rise very fast
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);  // and fade out
+  osc.connect(gain).connect(master);                        // the cables
+  osc.start(t);
+  osc.stop(t + dur + 0.02);
+}
+```
+
+Why `0.0001` and not `0`? «Exponential» ramps (which sound more natural to the ear) can't start or end at exactly zero. It's a quirk of the API.
+
+With this one function we make several sounds:
+
+- **Being born** («bloop»): a rising tone, lower the bigger the vertiki.
+- **Growing**: when you tap a newborn (step 14), a shorter «bloop» that rises a little higher the bigger it gets.
+
+### Collisions: listening only to what matters
+
+When you throw a vertiki at the others, each impact makes a low, very soft «tock». The hard part isn't the sound (it's another falling `tone`, very quiet), but **deciding when to play it**. If it sounded every time two vertikis touched, the whole pile would be a constant hum, because at rest they're all packed together.
+
+So we only listen to the one **you threw**, and only for 1.5 seconds:
+
+1. When you let go, if it was moving reasonably fast (more than 2 pixels per frame), we note `thrownUntil` = now + 1500 ms, plus the list of vertikis it was already touching.
+2. Every frame we check who it's touching now. If it touches one it **wasn't touching before**, that's a new impact: it sounds.
+3. The volume depends on **how fast the two are approaching each other**: a graze is barely audible and a good knock, a bit louder (but never much).
+
+```js
+const touching = new Set();
+for (const k of cells) {
+  if (k === c || Math.hypot(k.cx - c.cx, k.cy - c.cy) > (c.r + k.r) * 0.92) continue; // not touching
+  touching.add(k);
+  if (!c.touching.has(k)) bump(Math.hypot(c.vx - k.vx, c.vy - k.vy), Math.min(c.r, k.r)); // new!
+}
+c.touching = touching;
+```
+
+A `Set` is like an array where each thing appears only once and where asking «is this one in it?» (`has`) is very fast.
+
+### Popping: noise
+
+A popping balloon isn't a tone: it's **noise**, like the «shhh» of a badly tuned radio. We make it by filling 0.1 seconds of audio with random numbers:
+
+```js
+const len = Math.ceil(a.sampleRate * 0.1);      // how many samples make 0.1 s
+const buffer = a.createBuffer(1, len, a.sampleRate);
+const data = buffer.getChannelData(0);
+for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1; // between −1 and 1
+```
+
+That noise goes through a **filter** that cuts the highs and closes very quickly (from 2600 Hz to 300 Hz): the «pshh» turns into «poff». And we add a very short low tone that falls, the «thump», which gives it punch. Big balloons sound lower.
+
+```
+noise  →  filter (closing)  →  envelope  →  master
+                                    +  low tone  →  master
+```
+
+### Try it
+
+Change the numbers in `createSound` or the wave type (`'square'`, `'sawtooth'`) and listen to what happens. It's the best way to learn about sound: tweak and listen.
+
+---
+
+<a id="step-16"></a>
+
+## Step 16 · On the phone: tilting it
+
+▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/16.html) · [code](steps/en/16.html)
+
+### Gravity with a direction
+
+Until now gravity always pushed downwards. Now we store it as a **direction** (`gravX`, `gravY`), which on a desktop is «down» (0, 1):
+
+```js
+c.x[i] += vx + GRAVITY * gravX;
+c.y[i] += vy + GRAVITY * gravY;
+```
+
+On a phone, that direction comes from how the phone is tilted.
+
+### Reading the tilt
+
+The `deviceorientation` event gives us two angles: `gamma` (left-right tilt) and `beta` (front-back). Their sine tells us how much gravity pushes along each axis. If the screen is rotated (landscape), we rotate that direction too. And we smooth it (the step 12 pattern again) so it doesn't shake with your pulse.
+
+### The iPhone permission
+
+On iPhone you have to **ask for permission** to read the tilt, and you can only ask inside a user's tap. That's why we ask on the first `pointerdown`, at the same time as we unlock the sound. On Android it works without asking.
+
+### A phone detail
+
+Gravity is 40 % lower than on a desktop: in your hand, a small screen with strong gravity feels jittery.
+
+```js
+const touchDevice = window.matchMedia('(pointer: coarse)').matches; // touch screen?
+const GRAVITY = touchDevice ? 0.27 : 0.45;
+```
+
+---
+
+<a id="step-17"></a>
+
+## Step 17 · Ideas to keep playing
+
+The best way to learn is to break things. Some ideas, from easier to harder:
+
+1. **Change the colour palette**. Or make them all the same colour.
+2. Set `STIFFNESS` to `0.1`: jelly vertikis.
+3. Set `POINTS` to `8`: polygonal vertikis.
+4. Make `GRAVITY` negative: they fall upwards.
+5. Make them **change colour** when you hover over them.
+6. Add a **new expression**: they fall asleep (eyes closed) if nobody touches them for 10 seconds.
+7. Make two vertikis of the same colour that touch for a while **merge** into a bigger one.
+8. Make gravity point towards the mouse.
+
+---
+
+## Glossary
+
+- **Canvas**: a rectangle of pixels you draw on with JavaScript.
+- **Context (`ctx`)**: the canvas's «brush».
+- **Frame**: one of the still drawings that, in quick succession, make up the animation.
+- **Verlet**: a way of moving things by storing the current position and the previous one (the velocity is the difference).
+- **Friction**: multiplying the velocity by something less than 1 on each step so it slows down.
+- **Shape matching**: pulling the points towards an ideal shape placed at the same centre and rotation.
+- **Smoothing**: `value += (target − value) * k`, to approach something gradually.
+- **Spring**: like smoothing, but with velocity, so it overshoots a little and bounces back.
+- **Oscillator**: a Web Audio node that generates a tone.
+- **Envelope**: how a sound's volume rises and falls over time.
+- **Low-pass filter**: lets the lows through and cuts the highs.
+
+---
+
+<a id="for-maintainers"></a>
+
+## For maintainers
+
+You don't need this to learn or play with vertikis. It's only for whoever changes the repo's code.
+
+`vertikis.js` and the pages in `steps/` **are not edited by hand**: they all come from a single file, `src/vertikis.js`. That way each change is made once and the 32 step pages (16 per language) never drift apart. That file carries a few simple markers:
+
+- `//>> 4` … `//<<`: this chunk appears from step 4 on. `//>> 4-8`: only in steps 4 to 8.
+- `code // @4` or `code // @4-8`: the same, for a single line.
+- `//es texto` and `//en text`: a comment in each language.
+
+After changing it, regenerate everything with:
+
+```bash
+node tools/build.mjs
+```
+
+All you need is [Node](https://nodejs.org), nothing else to install.
+
+## Credits
+
+An experiment by [VERTIK](https://www.vertik.net).
+
+A tribute to the [yugop.com](https://yugop.com/) home page by Yugo Nakamura (2005), with its soft black circles that pushed each other around and could be dragged.
+
+## Licence
+
+[MIT](LICENSE): use it, change it and learn from it. If you make something cool, we'd love to see it.

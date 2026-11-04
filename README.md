@@ -1,5 +1,7 @@
 # vertikis
 
+**Español** · [English](README.en.md)
+
 Criaturas blandas de colores, con cara, que caen, se empujan, se aplastan al chocar y se pueden arrastrar, reventar y crear. Todo con un `<canvas>`, JavaScript normal y sin librerías.
 
 **Demo:** [scorcoles.github.io/vertikis](https://scorcoles.github.io/vertikis/) · también en [vertik.net/vertikis](https://www.vertik.net/vertikis/)
@@ -10,6 +12,8 @@ Criaturas blandas de colores, con cara, que caen, se empujan, se aplastan al cho
 - **En el móvil**, inclina el teléfono: la gravedad sigue la inclinación.
 
 Un experimento de [VERTIK](https://www.vertik.net). Homenaje a la home de yugop.com (Yugo Nakamura, 2005).
+
+Y un **tutorial paso a paso** para aprender a hacerlo desde cero, con una página que funciona por cada paso: [empieza aquí](#tutorial).
 
 ---
 
@@ -24,45 +28,55 @@ python3 -m http.server 8000
 # y abre http://localhost:8000
 ```
 
-El proyecto son tres archivos:
+Lo que hay en el repo:
 
-| Archivo | Qué hace |
+| Archivo | Qué es |
 | --- | --- |
 | `index.html` | La página: un `<canvas>` y el pie con los créditos. |
 | `style.css` | Que el canvas ocupe toda la ventana, el cursor y el pie. |
-| `vertikis.js` | Todo lo demás. Sus secciones llevan el mismo número que los pasos de este tutorial. |
+| `vertikis.js` | Todo lo demás. Sus secciones llevan el número del paso del tutorial que las explica. |
+| `steps/es/` · `steps/en/` | Una página por paso del tutorial (`01.html` … `16.html`), en español y en inglés. Cada una se abre con doble clic y funciona sola. |
+| `src/` · `tools/` | Solo para quien cambie el código: ver [Para quien mantenga el repo](#para-quien-mantenga-el-repo). |
 
 ---
+
+<a id="tutorial"></a>
 
 # Tutorial: cómo se hacen los vertikis, paso a paso
 
 Este tutorial está pensado para alguien que sabe poco de programación. Vamos despacio: cada paso añade **una sola idea**. Al final de cada paso te digo qué deberías ver si lo pruebas.
 
+**Cada paso tiene su página**, con el código completo hasta ese momento: ábrela para ver cómo va quedando, y mira su código (botón derecho → «Ver código fuente», o ábrela en tu editor) para ver exactamente qué ha cambiado respecto al paso anterior. Están en [`steps/es/`](steps/es/), y en vivo en `scorcoles.github.io/vertikis/steps/es/01.html`, `02.html`…
+
 Un consejo antes de empezar: no hace falta entender todas las matemáticas. Casi todo son sumas, restas y multiplicaciones. Cuando aparezca algo más raro (un seno, un coseno), te explico para qué sirve y puedes usarlo como una caja negra.
 
 **Índice**
 
-1. [El escenario: un canvas](#paso-1--el-escenario-un-canvas)
-2. [El bucle: dibujar 60 veces por segundo](#paso-2--el-bucle-dibujar-60-veces-por-segundo)
-3. [El objeto vertiki: un anillo de puntos](#paso-3--el-objeto-vertiki-un-anillo-de-puntos)
-4. [Moverse: inercia, fricción y gravedad](#paso-4--moverse-inercia-fricción-y-gravedad)
-5. [Los límites: que no se salgan de la pantalla](#paso-5--los-límites-que-no-se-salgan-de-la-pantalla)
-6. [Mantener la forma: el truco del «shape matching»](#paso-6--mantener-la-forma-el-truco-del-shape-matching)
-7. [Muchos vertikis](#paso-7--muchos-vertikis)
-8. [Choques entre vertikis](#paso-8--choques-entre-vertikis)
-9. [Subpasos: física más estable](#paso-9--subpasos-física-más-estable)
-10. [Color y un poco de luz](#paso-10--color-y-un-poco-de-luz)
-11. [La cara](#paso-11--la-cara)
-12. [El puntero: arrastrar y doble clic](#paso-12--el-puntero-arrastrar-y-doble-clic)
-13. [Reventar](#paso-13--reventar)
-14. [Nacer y crecer](#paso-14--nacer-y-crecer)
-15. [El sonido, sin archivos de audio](#paso-15--el-sonido-sin-archivos-de-audio)
-16. [El móvil: inclinar el teléfono](#paso-16--el-móvil-inclinar-el-teléfono)
-17. [Ideas para seguir jugando](#paso-17--ideas-para-seguir-jugando)
+1. [El escenario: un canvas](#paso-1)
+2. [El bucle: dibujar 60 veces por segundo](#paso-2)
+3. [El objeto vertiki: un anillo de puntos](#paso-3)
+4. [Moverse: inercia, fricción y gravedad](#paso-4)
+5. [Los límites: que no se salgan de la pantalla](#paso-5)
+6. [Mantener la forma: el truco del «shape matching»](#paso-6)
+7. [Muchos vertikis](#paso-7)
+8. [Choques entre vertikis](#paso-8)
+9. [Subpasos: física más estable](#paso-9)
+10. [Color y un poco de luz](#paso-10)
+11. [El puntero: arrastrar y lanzar](#paso-11)
+12. [La cara](#paso-12)
+13. [Reventar](#paso-13)
+14. [Nacer y crecer](#paso-14)
+15. [El sonido, sin archivos de audio](#paso-15)
+16. [El móvil: inclinar el teléfono](#paso-16)
+17. [Ideas para seguir jugando](#paso-17)
 
 ---
 
+<a id="paso-1"></a>
+
 ## Paso 1 · El escenario: un canvas
+
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/01.html) · [código](steps/es/01.html)
 
 ### Qué queremos
 
@@ -137,7 +151,11 @@ Deberías ver un círculo rojo. En el canvas, **x** crece hacia la derecha y **y
 
 ---
 
+<a id="paso-2"></a>
+
 ## Paso 2 · El bucle: dibujar 60 veces por segundo
+
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/02.html) · [código](steps/es/02.html)
 
 ### Qué queremos
 
@@ -192,7 +210,11 @@ El círculo cruza la pantalla. Prueba a quitar el `clearRect`: verás que deja r
 
 ---
 
+<a id="paso-3"></a>
+
 ## Paso 3 · El objeto vertiki: un anillo de puntos
+
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/03.html) · [código](steps/es/03.html)
 
 ### Qué queremos
 
@@ -230,7 +252,7 @@ for (let i = 0; i < POINTS; i++) {
 
 ### El objeto
 
-Cada vertiki es un objeto de JavaScript con su radio y las posiciones de sus puntos. Esta es la versión mínima (la de verdad, en `makeCell`, tiene más cosas que iremos añadiendo):
+Cada vertiki es un objeto de JavaScript con su radio y las posiciones de sus puntos. Esta es la versión mínima (en los pasos siguientes le iremos añadiendo cosas):
 
 ```js
 function makeCell(cx, cy, r) {
@@ -245,10 +267,6 @@ function makeCell(cx, cy, r) {
 ```
 
 Guardamos las `x` en un array y las `y` en otro. `px` y `py` son una copia: «dónde estaba cada punto antes». Las usaremos en el paso 4.
-
-### Un toque orgánico
-
-Un círculo perfecto queda muy de ordenador. En el código real, la forma de reposo está **un poquito ovalada** (entre un 2 % y un 6 %, el valor `e`) y girada al azar. Apenas se nota, pero hace que parezcan vivos.
 
 ### Dibujar un contorno suave
 
@@ -266,11 +284,15 @@ ctx.fill();
 
 ### Pruébalo
 
-Crea un vertiki con `const c = makeCell(300, 300, 100)` y dibújalo en `draw()`. Deberías ver un círculo. Ahora haz `c.x[0] += 60` antes de dibujarlo: le sale un bulto. Ya tenemos algo deformable.
+En la página del paso 3 verás un círculo gris con sus 28 puntos marcados. Prueba a añadir `cells[0].x[0] += 60` en la consola del navegador: le sale un bulto. Ya tenemos algo deformable.
 
 ---
 
+<a id="paso-4"></a>
+
 ## Paso 4 · Moverse: inercia, fricción y gravedad
+
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/04.html) · [código](steps/es/04.html)
 
 ### Qué queremos
 
@@ -315,7 +337,11 @@ Pon este bucle dentro de `frame()`, antes de `draw()`. El vertiki cae… y se sa
 
 ---
 
+<a id="paso-5"></a>
+
 ## Paso 5 · Los límites: que no se salgan de la pantalla
+
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/05.html) · [código](steps/es/05.html)
 
 ### Qué queremos
 
@@ -353,7 +379,11 @@ El vertiki cae y se queda en el suelo. Pero… se queda **aplastado como una tor
 
 ---
 
+<a id="paso-6"></a>
+
 ## Paso 6 · Mantener la forma: el truco del «shape matching»
+
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/06.html) · [código](steps/es/06.html)
 
 ### Qué queremos
 
@@ -437,7 +467,11 @@ Ahora el vertiki cae, se aplasta un poquito contra el suelo, rebota levemente y 
 
 ---
 
+<a id="paso-7"></a>
+
 ## Paso 7 · Muchos vertikis
+
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/07.html) · [código](steps/es/07.html)
 
 ### Qué queremos
 
@@ -479,7 +513,11 @@ Ves muchos vertikis cayendo… y **atravesándose** unos a otros como fantasmas.
 
 ---
 
+<a id="paso-8"></a>
+
 ## Paso 8 · Choques entre vertikis
+
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/08.html) · [código](steps/es/08.html)
 
 ### Qué queremos
 
@@ -510,15 +548,19 @@ Para no comparar cada punto con todos los vertikis de la pantalla (lento), prime
 
 - Dejamos un 12 % de margen (`(A.r + B.r) * 0.88`) para que se sigan aplastando en el contacto.
 - **Pesan según su tamaño**: el grande se mueve poco y el pequeño mucho.
-- El que llevas arrastrado pesa 6 veces más, para que puedas apartar a los demás con él.
+- Desde el paso 11, el que llevas arrastrado pesa 6 veces más, para que puedas apartar a los demás con él.
 
 ### Pruébalo
 
-Ya se apilan como una montaña de globos de agua. Si los tiras unos contra otros, se deforman y se separan.
+Ya se apilan como una montaña de globos de agua, aplastados donde se tocan.
 
 ---
 
+<a id="paso-9"></a>
+
 ## Paso 9 · Subpasos: física más estable
+
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/09.html) · [código](steps/es/09.html)
 
 ### Qué queremos
 
@@ -538,7 +580,11 @@ Toda la física (pasos 4, 5, 6 y 8) va dentro de `step()`. Cuesta 4 veces más c
 
 ---
 
+<a id="paso-10"></a>
+
 ## Paso 10 · Color y un poco de luz
+
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/10.html) · [código](steps/es/10.html)
 
 ### Qué queremos
 
@@ -567,9 +613,67 @@ ctx.fillStyle = g;
 
 El truco está en que sea **muy poco**: apenas un 16 % hacia el blanco y un 6 % hacia el negro. Si te pasas, parecen bolas de Navidad.
 
+### Un toque orgánico
+
+Un círculo perfecto queda muy de ordenador. A partir de este paso, la forma de reposo está **un poquito ovalada** (entre un 2 % y un 6 %, el valor `e`) y girada al azar. Apenas se nota, pero hace que parezcan vivos. Por eso, desde aquí, `makeCell`, `fitShape` y `step` multiplican el radio por `(1 + e)` en un eje y por `(1 − e)` en el otro.
+
+
 ---
 
-## Paso 11 · La cara
+<a id="paso-11"></a>
+
+## Paso 11 · El puntero: arrastrar y lanzar
+
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/11.html) · [código](steps/es/11.html)
+
+### Eventos de puntero
+
+Usamos los **pointer events** (`pointerdown`, `pointermove`, `pointerup`), que funcionan igual con ratón, dedo o lápiz. Así escribimos el código una sola vez para escritorio y móvil.
+
+### ¿Qué vertiki hay aquí?
+
+```js
+function cellAt(x, y) {
+  for (let k = cells.length - 1; k >= 0; k--) {     // del último al primero
+    const c = cells[k];
+    if (Math.hypot(x - c.cx, y - c.cy) <= c.r) return c;
+  }
+  return null;
+}
+```
+
+Recorremos al revés porque los últimos se dibujan encima: si dos se solapan, gana el de arriba.
+
+### Arrastrar
+
+Al pulsar sobre un vertiki lo guardamos en `grabbed`, y en cada paso de física lo **acercamos al puntero** (un 35 % del camino). El truco fino: también movemos su posición «antes» casi lo mismo. Así no acumula velocidad mientras lo arrastras (si no, temblaría), pero conserva un 30 % de impulso: **al soltarlo sale lanzado** en la dirección en que lo movías.
+
+```js
+const dx = (pointer.x - grabOffset.x - c.cx) * 0.35;
+const dy = (pointer.y - grabOffset.y - c.cy) * 0.35;
+for (let i = 0; i < POINTS; i++) {
+  c.x[i] += dx;
+  c.y[i] += dy;
+  c.px[i] += dx * 0.7; // «antes» se mueve el 70 %: queda un 30 % de velocidad
+  c.py[i] += dy * 0.7;
+}
+```
+
+`grabOffset` recuerda **dónde lo cogiste** (por el borde o por el centro), para que no dé un salto.
+
+Otros detalles: mientras lo arrastras se frena más (fricción 0.6) para que no oscile, pasa a dibujarse encima de todos y usamos `setPointerCapture` para seguir recibiendo el movimiento aunque el puntero salga del canvas.
+
+### El cursor
+
+En CSS ponemos una mano encima de un vertiki (y, desde el paso 14, un «+» en los huecos, porque ahí un doble clic crea uno). En cada fotograma miramos qué hay bajo el ratón (`updateHover()`), porque los vertikis se mueven aunque el ratón esté quieto, y ponemos o quitamos una clase en el canvas. Ese mismo `hovered` lo usará la sonrisa en el paso siguiente.
+
+---
+
+<a id="paso-12"></a>
+
+## Paso 12 · La cara
+
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/12.html) · [código](steps/es/12.html)
 
 Esta es la parte que les da personalidad. La cara son tres trazos (dos ojos y una boca), pero con varios detalles que los hacen sentir vivos.
 
@@ -625,51 +729,22 @@ Se pasa un poquito y vuelve: un mini rebote de ~0,3 s. Es un detalle pequeño qu
 
 ### Reacciones
 
-- **Susto («o»)**: cuando revientas un vertiki, sus vecinos ponen boca de «o» y abren los ojos durante 0,7 s.
+- **Susto («o»)**: cuando revientas un vertiki (lo verás en el paso 13), sus vecinos ponen boca de «o» y abren los ojos durante 0,7 s.
 - **Ojos apretados «> <»**: si un vertiki cambia de velocidad de golpe (un choque fuerte), aprieta los ojos 0,3 s. Lo detectamos comparando cuánto se movió su centro en este fotograma y en el anterior.
 
 Las dos funcionan igual: guardamos «hasta cuándo» (`surprisedUntil`, `squintUntil`) y al dibujar miramos si todavía no ha llegado esa hora.
 
 ---
 
-## Paso 12 · El puntero: arrastrar y doble clic
+<a id="paso-13"></a>
 
-### Eventos de puntero
+## Paso 13 · Reventar
 
-Usamos los **pointer events** (`pointerdown`, `pointermove`, `pointerup`), que funcionan igual con ratón, dedo o lápiz. Así escribimos el código una sola vez para escritorio y móvil.
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/13.html) · [código](steps/es/13.html)
 
-### ¿Qué vertiki hay aquí?
+### Qué queremos
 
-```js
-function cellAt(x, y) {
-  for (let k = cells.length - 1; k >= 0; k--) {     // del último al primero
-    const c = cells[k];
-    if (Math.hypot(x - c.cx, y - c.cy) <= c.r) return c;
-  }
-  return null;
-}
-```
-
-Recorremos al revés porque los últimos se dibujan encima: si dos se solapan, gana el de arriba.
-
-### Arrastrar
-
-Al pulsar sobre un vertiki lo guardamos en `grabbed`, y en cada paso de física lo **acercamos al puntero** (un 35 % del camino). El truco fino: también movemos su posición «antes» casi lo mismo. Así no acumula velocidad mientras lo arrastras (si no, temblaría), pero conserva un 30 % de impulso: **al soltarlo sale lanzado** en la dirección en que lo movías.
-
-```js
-const dx = (pointer.x - grabOffset.x - c.cx) * 0.35;
-const dy = (pointer.y - grabOffset.y - c.cy) * 0.35;
-for (let i = 0; i < POINTS; i++) {
-  c.x[i] += dx;
-  c.y[i] += dy;
-  c.px[i] += dx * 0.7; // «antes» se mueve el 70 %: queda un 30 % de velocidad
-  c.py[i] += dy * 0.7;
-}
-```
-
-`grabOffset` recuerda **dónde lo cogiste** (por el borde o por el centro), para que no dé un salto.
-
-Otros detalles: mientras lo arrastras se frena más (fricción 0.6) para que no oscile, pasa a dibujarse encima de todos y usamos `setPointerCapture` para seguir recibiendo el movimiento aunque el puntero salga del canvas.
+Que reviente como un globo: «¡pop!», unas gotas que salen volando y una onda.
 
 ### Doble clic hecho a mano
 
@@ -679,26 +754,14 @@ El navegador tiene un evento `dblclick`, pero en el móvil no es fiable. Así qu
 const double = now - lastDown.t < 320 && Math.hypot(e.clientX - lastDown.x, e.clientY - lastDown.y) < 30;
 ```
 
-Con un doble clic: si hay un vertiki, revienta (paso 13); si es un hueco, nace uno nuevo (paso 14).
-
-### El cursor
-
-En CSS ponemos un cursor «+» en los huecos (porque ahí un doble clic crea un vertiki) y una mano encima de un vertiki. En cada fotograma miramos qué hay bajo el ratón (`updateHover()`), porque los vertikis se mueven aunque el ratón esté quieto, y ponemos o quitamos una clase en el canvas.
-
----
-
-## Paso 13 · Reventar
-
-### Qué queremos
-
-Que reviente como un globo: «¡pop!», unas gotas que salen volando y una onda.
+Si hay un vertiki debajo, revienta. En un hueco, de momento, no pasa nada: ahí nacerán en el paso 14.
 
 ### La idea
 
 1. Quitamos el vertiki del array `cells`.
 2. Creamos unas cuantas **gotas** (más cuanto más grande era) en su borde, con una velocidad hacia fuera y un poco hacia arriba.
 3. Creamos una **onda**: un círculo que se agranda y se desvanece.
-4. Asustamos a los vecinos (paso 11) y hacemos sonar el pop (paso 15).
+4. Asustamos a los vecinos (paso 12) y hacemos sonar el pop (paso 15).
 
 Las gotas son lo más sencillo de todo el proyecto: posición, velocidad, gravedad y una «vida» que baja de 1 a 0. Al dibujarlas, su tamaño es `radio * vida`, así que se encogen hasta desaparecer:
 
@@ -717,7 +780,11 @@ La onda es igual: un valor `t` de 0 a 1. El radio crece con `t` y la opacidad (`
 
 ---
 
+<a id="paso-14"></a>
+
 ## Paso 14 · Nacer y crecer
+
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/14.html) · [código](steps/es/14.html)
 
 ### Qué queremos
 
@@ -725,7 +792,7 @@ Que un vertiki nuevo no aparezca de golpe, sino que **nazca pequeño y se infle*
 
 ### Crecer
 
-`spawn()` crea un vertiki con un radio de solo el 15 % del que tendrá, y le apunta su tamaño final en `target`. En cada fotograma, el radio se acerca al objetivo con el patrón de suavizado del paso 11:
+Un doble clic en un hueco (lo que dejamos pendiente en el paso 13) llama a `spawn()`, que crea un vertiki con un radio de solo el 15 % del que tendrá, y le apunta su tamaño final en `target`. En cada fotograma, el radio se acerca al objetivo con el patrón de suavizado del paso 12:
 
 ```js
 c.r += (c.target - c.r) * 0.2;
@@ -759,7 +826,11 @@ function feed(c) {
 
 ---
 
+<a id="paso-15"></a>
+
 ## Paso 15 · El sonido, sin archivos de audio
+
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/15.html) · [código](steps/es/15.html)
 
 Ningún sonido del proyecto es un archivo. Todos se **fabrican en el momento** con la Web Audio API, que es como tener un pequeño sintetizador dentro del navegador.
 
@@ -872,11 +943,15 @@ Cambia los números de `createSound` o el tipo de onda (`'square'`, `'sawtooth'`
 
 ---
 
+<a id="paso-16"></a>
+
 ## Paso 16 · El móvil: inclinar el teléfono
+
+▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/16.html) · [código](steps/es/16.html)
 
 ### La gravedad con dirección
 
-Hasta ahora la gravedad empujaba siempre hacia abajo. En realidad la guardamos como una **dirección** (`gravX`, `gravY`), que en escritorio vale «hacia abajo» (0, 1):
+Hasta ahora la gravedad empujaba siempre hacia abajo. Ahora la guardamos como una **dirección** (`gravX`, `gravY`), que en escritorio vale «hacia abajo» (0, 1):
 
 ```js
 c.x[i] += vx + GRAVITY * gravX;
@@ -887,7 +962,7 @@ En el móvil, esa dirección la marca la inclinación del teléfono.
 
 ### Leer la inclinación
 
-El evento `deviceorientation` nos da dos ángulos: `gamma` (inclinación izquierda-derecha) y `beta` (adelante-atrás). Su seno nos dice cuánto empuja la gravedad en cada eje. Si la pantalla está girada (en horizontal), giramos también esa dirección. Y la suavizamos (otra vez el patrón del paso 11) para que no tiemble con el pulso.
+El evento `deviceorientation` nos da dos ángulos: `gamma` (inclinación izquierda-derecha) y `beta` (adelante-atrás). Su seno nos dice cuánto empuja la gravedad en cada eje. Si la pantalla está girada (en horizontal), giramos también esa dirección. Y la suavizamos (otra vez el patrón del paso 12) para que no tiemble con el pulso.
 
 ### El permiso del iPhone
 
@@ -903,6 +978,8 @@ const GRAVITY = touchDevice ? 0.27 : 0.45;
 ```
 
 ---
+
+<a id="paso-17"></a>
 
 ## Paso 17 · Ideas para seguir jugando
 
@@ -934,6 +1011,26 @@ La mejor forma de aprender es romper cosas. Algunas ideas, de más fácil a más
 - **Filtro paso bajo (lowpass)**: deja pasar los graves y corta los agudos.
 
 ---
+
+<a id="para-quien-mantenga-el-repo"></a>
+
+## Para quien mantenga el repo
+
+Para aprender o jugar con vertikis no necesitas esto. Es solo para quien cambie el código del repo.
+
+`vertikis.js` y las páginas de `steps/` **no se editan a mano**: salen todas de un único archivo, `src/vertikis.js`. Así cada cambio se hace una sola vez y los 32 pasos (16 en cada idioma) no se desincronizan. Ese archivo lleva unas marcas sencillas:
+
+- `//>> 4` … `//<<`: este trozo aparece a partir del paso 4. `//>> 4-8`: solo en los pasos 4 a 8.
+- `código // @4` o `código // @4-8`: lo mismo, para una sola línea.
+- `//es texto` y `//en text`: un comentario en cada idioma.
+
+Después de cambiarlo, genera todo con:
+
+```bash
+node tools/build.mjs
+```
+
+Solo hace falta [Node](https://nodejs.org), sin instalar nada más.
 
 ## Créditos
 

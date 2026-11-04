@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>vertikis · step 1: The stage</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #fff; overflow: hidden; overscroll-behavior: none; }
+      canvas {
+        position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none;
+      }
+      .step {
+        position: fixed; left: 8px; top: 8px; z-index: 1; max-width: calc(100vw - 16px); margin: 0;
+        font: 10px/1.6 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.04em; color: #000;
+        pointer-events: none;
+      }
+      .step b { display: inline-block; padding: 2px 5px; background: #000; color: #fff; font-weight: normal; text-transform: uppercase; }
+      .step a { color: inherit; pointer-events: auto; margin-right: 8px; }
+    </style>
+  </head>
+  <body>
+    <canvas data-cells></canvas>
+    <p class="step">
+      <b>step 1 of 16 · The stage</b><br />
+      A circle drawn on a canvas that fills the whole window.<br />
+      <a href="02.html">next →</a><a href="https://github.com/scorcoles/vertikis/blob/main/README.en.md#step-1">tutorial</a>
+    </p>
+    <script>
+      // Vertikis: soft, colourful creatures with faces that fall, push each other and squash
+      // when they collide, and that you can drag, pop and create. An experiment by VERTIK.
+      // A tribute to the yugop.com home page (Yugo Nakamura, 2005).
+
+      // =========================================================================================
+      // Step 1 · The stage: a canvas that fills the window
+      // =========================================================================================
+
+      const canvas = document.querySelector('[data-cells]');
+      // The «brush» we draw on the canvas with.
+      const ctx = canvas.getContext('2d');
+
+      // Width and height of the stage, in CSS pixels.
+      let W = 0;
+      let H = 0;
+
+      function resize() {
+        // On retina screens there are 2 real pixels per CSS pixel: we draw at double size so it
+        // looks sharp (×2 at most, so we don't overdo it).
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width = Math.round(W * dpr);
+        canvas.height = Math.round(H * dpr);
+        // From here on we draw in CSS pixels and the browser multiplies by dpr.
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      // To try it out: a red circle in the middle.
+      function draw() {
+        ctx.fillStyle = 'tomato';
+        ctx.beginPath();
+        ctx.arc(W / 2, H / 2, Math.min(W, H) * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // =========================================================================================
+      // Let's go!
+      // =========================================================================================
+
+      window.addEventListener('resize', () => {
+        resize();
+        draw();
+      });
+      resize();
+      draw();
+    </script>
+  </body>
+</html>

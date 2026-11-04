@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>vertikis · step 13: Popping</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #fff; overflow: hidden; overscroll-behavior: none; }
+      canvas {
+        position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none;
+      }
+      canvas.is-over { cursor: grab; }
+      canvas.is-dragging { cursor: grabbing; }
+      .step {
+        position: fixed; left: 8px; top: 8px; z-index: 1; max-width: calc(100vw - 16px); margin: 0;
+        font: 10px/1.6 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.04em; color: #000;
+        pointer-events: none;
+      }
+      .step b { display: inline-block; padding: 2px 5px; background: #000; color: #fff; font-weight: normal; text-transform: uppercase; }
+      .step a { color: inherit; pointer-events: auto; margin-right: 8px; }
+    </style>
+  </head>
+  <body>
+    <canvas data-cells></canvas>
+    <p class="step">
+      <b>step 13 of 16 · Popping</b><br />
+      Double-click a vertiki: pop! Its neighbours get a fright.<br />
+      <a href="12.html">← previous</a><a href="14.html">next →</a><a href="https://github.com/scorcoles/vertikis/blob/main/README.en.md#step-13">tutorial</a>
+    </p>
+    <script>
+      // Vertikis: soft, colourful creatures with faces that fall, push each other and squash
+      // when they collide, and that you can drag, pop and create. An experiment by VERTIK.
+      // A tribute to the yugop.com home page (Yugo Nakamura, 2005).
+
+      // =========================================================================================
+      // Step 1 · The stage: a canvas that fills the window
+      // =========================================================================================
+
+      const canvas = document.querySelector('[data-cells]');
+      // The «brush» we draw on the canvas with.
+      const ctx = canvas.getContext('2d');
+
+      // Width and height of the stage, in CSS pixels.
+      let W = 0;
+      let H = 0;
+
+      function resize() {
+        // On retina screens there are 2 real pixels per CSS pixel: we draw at double size so it
+        // looks sharp (×2 at most, so we don't overdo it).
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const first = W === 0;
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width = Math.round(W * dpr);
+        canvas.height = Math.round(H * dpr);
+        // From here on we draw in CSS pixels and the browser multiplies by dpr.
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        // The first time, we fill the stage (step 7).
+        if (first) populate();
+      }
+
+      // =========================================================================================
+      // Step 3 · The vertiki object: a ring of points
+      // =========================================================================================
+
+      // Points around the outline of each vertiki.
+      const POINTS = 28;
+
+      // Shared resting shape: a circle of radius 1. Each vertiki multiplies it by its radius.
+      // We store x and y one after the other: [x0, y0, x1, y1, …].
+      const UNIT = new Float32Array(POINTS * 2);
+      for (let i = 0; i < POINTS; i++) {
+        const a = (i / POINTS) * Math.PI * 2;
+        UNIT[i * 2] = Math.cos(a);
+        UNIT[i * 2 + 1] = Math.sin(a);
+      }
+
+      // Step 10 · Flat colours, cheerful but slightly muted.
+      const PALETTE = ['#f29e4c', '#f2c14e', '#4fb3a9', '#ef7aa1', '#6c9bd2', '#9ccc5a', '#4caf72', '#9b86c9', '#f0806c'];
+
+      // Mixes a hex colour with white (t > 0) or with black (t < 0).
+      function tint(hex, t) {
+        const n = parseInt(hex.slice(1), 16);
+        const to = t > 0 ? 255 : 0;
+        const k = Math.abs(t);
+        const ch = (v) => Math.round(v + (to - v) * k);
+        return `rgb(${ch(n >> 16)}, ${ch((n >> 8) & 255)}, ${ch(n & 255)})`;
+      }
+
+      // All the vertikis («cells») on the stage.
+      let cells = [];
+
+      function makeCell(cx, cy, r) {
+        // Step 10 · A slightly oval resting shape (organic, not a perfect circle): the long axis
+        // is r·(1+e) and the short one r·(1−e), with the long axis pointing in a random direction.
+        const e = 0.02 + Math.random() * 0.04;
+        const turn = Math.random() * Math.PI;
+        const cos = Math.cos(turn);
+        const sin = Math.sin(turn);
+        const x = new Float32Array(POINTS);
+        const y = new Float32Array(POINTS);
+        for (let i = 0; i < POINTS; i++) {
+          const qx = UNIT[i * 2] * r * (1 + e);
+          const qy = UNIT[i * 2 + 1] * r * (1 - e);
+          x[i] = cx + qx * cos - qy * sin;
+          y[i] = cy + qx * sin + qy * cos;
+        }
+        const color = PALETTE[Math.floor(Math.random() * PALETTE.length)];
+        return {
+          // Resting radius.
+          r,
+          // Current position of each point.
+          x,
+          y,
+          // Position in the previous step (step 4: Verlet).
+          px: x.slice(),
+          py: y.slice(),
+          // Centre of the shape (and, from step 6, its rotation).
+          cx,
+          cy,
+          // Step 10 · how oval it is, starting rotation and colours.
+          e,
+          angle: turn,
+          color,
+          light: tint(color, 0.16),
+          shade: tint(color, -0.06),
+          // Step 12 · The face. «base» is the rotation it was born with: the face is measured
+          // from here, so it starts upright. smile: 0 = «:)», 1 = «:D», on a spring (smileV).
+          base: turn,
+          smile: 0,
+          smileV: 0,
+          lookX: 0,
+          lookY: 0,
+          blinkAt: performance.now() + 1000 + Math.random() * 5000,
+          surprisedUntil: 0,
+          squintUntil: 0,
+          vx: 0,
+          vy: 0,
+          prevCx: cx,
+          prevCy: cy,
+        };
+      }
+
+      // =========================================================================================
+      // Step 7 · Lots of vertikis
+      // =========================================================================================
+
+      // Assorted sizes, slightly overlapping, so that at the start they push each other and end
+      // up packed together and flattened where they touch.
+      function populate() {
+        cells = [];
+        const unit = Math.min(W, H);
+        // Area they cover: half the screen.
+        const target = W * H * 0.5;
+        let area = 0;
+        for (let tries = 0; tries < 6000 && area < target; tries++) {
+          const r = unit * (0.09 + Math.random() ** 1.3 * 0.12);
+          const cx = r * 0.6 + Math.random() * (W - r * 1.2);
+          const cy = r * 0.6 + Math.random() * (H - r * 1.2);
+          // If it overlaps another one too much, we try somewhere else.
+          if (cells.some((c) => Math.hypot(c.cx - cx, c.cy - cy) < (c.r + r) * 0.82)) continue;
+          cells.push(makeCell(cx, cy, r));
+          area += Math.PI * r * r;
+        }
+      }
+
+      // =========================================================================================
+      // Steps 4, 5, 6, 8 and 9 · The physics
+      // =========================================================================================
+
+      // Step 9: how many times we run the physics each frame.
+      const SUBSTEPS = 4;
+      // Step 4: how much speed each point keeps on every step.
+      const FRICTION = 0.96;
+      // Step 6: how strongly each point pulls towards its resting shape.
+      const STIFFNESS = 0.45;
+      // Gravity (px per step²).
+      const GRAVITY = 0.45;
+
+      // Step 11 · The pointer: the grabbed vertiki, the one under the mouse and where the pointer is.
+      let grabbed = null;
+      let hovered = null;
+      let grabOffset = { x: 0, y: 0 };
+      let pointer = { x: 0, y: 0 };
+      // Step 12 · Until the pointer moves, the eyes look straight ahead.
+      let pointerSeen = false;
+
+      // Step 6 · Where the shape is and how far it has turned: the centre is the average of the
+      // points; the rotation, the angle that best fits the resting shape onto the current one.
+      function fitShape(c) {
+        let sx = 0;
+        let sy = 0;
+        for (let i = 0; i < POINTS; i++) {
+          sx += c.x[i];
+          sy += c.y[i];
+        }
+        c.cx = sx / POINTS;
+        c.cy = sy / POINTS;
+        let dot = 0;
+        let cross = 0;
+        for (let i = 0; i < POINTS; i++) {
+          const qx = UNIT[i * 2] * c.r * (1 + c.e);
+          const qy = UNIT[i * 2 + 1] * c.r * (1 - c.e);
+          const rx = c.x[i] - c.cx;
+          const ry = c.y[i] - c.cy;
+          dot += qx * rx + qy * ry;
+          cross += qx * ry - qy * rx;
+        }
+        c.angle = Math.atan2(cross, dot);
+      }
+
+      function step() {
+        for (const c of cells) {
+          // Step 4 · Inertia with friction, plus gravity (Verlet integration: the velocity is
+          // the difference between the current position and the previous one).
+          for (let i = 0; i < POINTS; i++) {
+            // The grabbed one is damped more, so it follows the pointer without wobbling.
+            const f = c === grabbed ? 0.6 : FRICTION;
+            const vx = (c.x[i] - c.px[i]) * f;
+            const vy = (c.y[i] - c.py[i]) * f;
+            c.px[i] = c.x[i];
+            c.py[i] = c.y[i];
+            c.x[i] += vx;
+            c.y[i] += vy + GRAVITY;
+          }
+
+          // Step 11 · Dragging: the whole vertiki moves towards the pointer. The previous position
+          // moves almost as much, so it doesn't build up speed (it would shake); the remaining 30 %
+          // is the push it flies off with when you let go.
+          if (c === grabbed) {
+            const dx = (pointer.x - grabOffset.x - c.cx) * 0.35;
+            const dy = (pointer.y - grabOffset.y - c.cy) * 0.35;
+            for (let i = 0; i < POINTS; i++) {
+              c.x[i] += dx;
+              c.y[i] += dy;
+              c.px[i] += dx * 0.7;
+              c.py[i] += dy * 0.7;
+            }
+          }
+
+          // Step 6 · Back to the resting shape, rotated and centred as it is now.
+          fitShape(c);
+          const cos = Math.cos(c.angle);
+          const sin = Math.sin(c.angle);
+          for (let i = 0; i < POINTS; i++) {
+            const qx = UNIT[i * 2] * c.r * (1 + c.e);
+            const qy = UNIT[i * 2 + 1] * c.r * (1 - c.e);
+            // Where this point «should» be.
+            const gx = c.cx + qx * cos - qy * sin;
+            const gy = c.cy + qx * sin + qy * cos;
+            c.x[i] += (gx - c.x[i]) * STIFFNESS;
+            c.y[i] += (gy - c.y[i]) * STIFFNESS;
+          }
+        }
+
+        // Step 8a · Point collisions: every point that gets inside another vertiki (treated as a
+        // circle) is pushed back out. That's how they flatten where they touch.
+        for (let a = 0; a < cells.length; a++) {
+          const A = cells[a];
+          for (let b = 0; b < cells.length; b++) {
+            if (a === b) continue;
+            const B = cells[b];
+            // If they're far apart, we don't even check.
+            const reach = A.r + B.r;
+            if (Math.abs(A.cx - B.cx) > reach || Math.abs(A.cy - B.cy) > reach) continue;
+            const R = B.r * 0.96;
+            for (let i = 0; i < POINTS; i++) {
+              const dx = A.x[i] - B.cx;
+              const dy = A.y[i] - B.cy;
+              const d2 = dx * dx + dy * dy;
+              if (d2 >= R * R || d2 === 0) continue;
+              const d = Math.sqrt(d2);
+              const push = (R - d) * 0.5;
+              A.x[i] += (dx / d) * push;
+              A.y[i] += (dy / d) * push;
+            }
+          }
+        }
+
+        // Step 8b · Separating whole vertikis: if two centres are closer than their sizes allow
+        // (with a 12 % margin so they still squash), they're pushed apart as blocks. They weigh
+        // according to their area.
+        // The grabbed one weighs more, so it can shove the others aside.
+        for (let a = 0; a < cells.length; a++) {
+          const A = cells[a];
+          for (let b = a + 1; b < cells.length; b++) {
+            const B = cells[b];
+            let dx = B.cx - A.cx;
+            let dy = B.cy - A.cy;
+            let d = Math.hypot(dx, dy);
+            const min = (A.r + B.r) * 0.88;
+            if (d >= min) continue;
+            if (d < 0.01) {
+              // Centres almost identical: they split in a random direction.
+              const t = Math.random() * Math.PI * 2;
+              dx = Math.cos(t);
+              dy = Math.sin(t);
+              d = 1;
+            }
+            const nx = dx / d;
+            const ny = dy / d;
+            const ma = A.r * A.r * (A === grabbed ? 6 : 1);
+            const mb = B.r * B.r * (B === grabbed ? 6 : 1);
+            // Half the overlap per step (stable); almost all of it without adding speed.
+            const push = (min - d) * 0.5;
+            const sa = push * (mb / (ma + mb));
+            const sb = push * (ma / (ma + mb));
+            for (let i = 0; i < POINTS; i++) {
+              A.x[i] -= nx * sa;
+              A.y[i] -= ny * sa;
+              A.px[i] -= nx * sa * 0.8;
+              A.py[i] -= ny * sa * 0.8;
+              B.x[i] += nx * sb;
+              B.y[i] += ny * sb;
+              B.px[i] += nx * sb * 0.8;
+              B.py[i] += ny * sb * 0.8;
+            }
+            A.cx -= nx * sa;
+            A.cy -= ny * sa;
+            B.cx += nx * sb;
+            B.cy += ny * sb;
+          }
+        }
+
+        // Step 5 · The edges: no point leaves the window. Touching an edge slows down sliding
+        // along it (friction), on all four edges.
+        for (const c of cells) {
+          for (let i = 0; i < POINTS; i++) {
+            if (c.x[i] < 0 || c.x[i] > W) {
+              c.x[i] = c.x[i] < 0 ? 0 : W;
+              c.py[i] = c.y[i] - (c.y[i] - c.py[i]) * 0.6;
+            }
+            if (c.y[i] < 0 || c.y[i] > H) {
+              c.y[i] = c.y[i] < 0 ? 0 : H;
+              c.px[i] = c.x[i] - (c.x[i] - c.px[i]) * 0.6;
+            }
+          }
+        }
+      }
+
+      // =========================================================================================
+      // Drawing (steps 3, 10, 12 and 13)
+      // =========================================================================================
+
+      // Step 13 · Droplets from popped balloons and rings that spread out.
+      let drops = [];
+      let rings = [];
+      // Step 12 · Ink for the faces.
+      const INK = '#1b1b1b';
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+
+        for (const c of cells) {
+          // Step 10 · A very faint gradient: a fixed light at the top left, lighter there and a
+          // little darker on the opposite edge.
+          const g = ctx.createRadialGradient(c.cx - c.r * 0.35, c.cy - c.r * 0.4, c.r * 0.05, c.cx, c.cy, c.r * 1.25);
+          g.addColorStop(0, c.light);
+          g.addColorStop(0.55, c.color);
+          g.addColorStop(1, c.shade);
+          ctx.fillStyle = g;
+          // Step 3 · Smooth outline: curves through the midpoints of the ring.
+          ctx.beginPath();
+          const mx = (c.x[POINTS - 1] + c.x[0]) / 2;
+          const my = (c.y[POINTS - 1] + c.y[0]) / 2;
+          ctx.moveTo(mx, my);
+          for (let i = 0; i < POINTS; i++) {
+            const j = (i + 1) % POINTS;
+            ctx.quadraticCurveTo(c.x[i], c.y[i], (c.x[i] + c.x[j]) / 2, (c.y[i] + c.y[j]) / 2);
+          }
+          ctx.fill();
+        }
+
+        // Step 12 · Faces: two eyes that follow the pointer and blink, and a smile that curves
+        // more when you hover. Reactions: a startled «o» and squeezed eyes «> <».
+        const now = performance.now();
+        ctx.fillStyle = INK;
+        ctx.strokeStyle = INK;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        for (const c of cells) {
+          // Everything is measured relative to the radius.
+          const s = c.r;
+          const squint = now < c.squintUntil;
+          const surprised = !squint && now < c.surprisedUntil;
+          ctx.save();
+          ctx.translate(c.cx, c.cy);
+          // The face tilts with the body's rotation, but damped (×0.35): it reacts to rolling
+          // without ever ending up upside down.
+          const turned = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base));
+          ctx.rotate(turned * 0.35);
+
+          // Eyes.
+          const eye = Math.max(1, s * 0.036) * (surprised ? 1.35 : 1);
+          ctx.lineWidth = Math.max(1, s * 0.03);
+          for (const side of [-1, 1]) {
+            const ex = side * s * 0.22;
+            const ey = -s * 0.12;
+            if (squint) {
+              // «>» and «<»: two strokes pointing towards the centre of the face.
+              const d = eye * 1.8;
+              ctx.beginPath();
+              ctx.moveTo(ex + side * d, ey - d);
+              ctx.lineTo(ex - side * d * 0.4, ey);
+              ctx.lineTo(ex + side * d, ey + d);
+              ctx.stroke();
+              continue;
+            }
+            // Blink: the eye squashes vertically for ~130 ms.
+            const t = (now - c.blinkAt) / 130;
+            const open = t >= 0 && t <= 1 ? Math.abs(1 - 2 * t) : 1;
+            ctx.beginPath();
+            ctx.ellipse(ex + c.lookX * s, ey + c.lookY * s, eye, Math.max(0.4, eye * open), 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Mouth.
+          ctx.lineWidth = Math.max(1, s * 0.032);
+          ctx.beginPath();
+          if (surprised) {
+            // Startled «o».
+            ctx.arc(0, s * 0.12, s * 0.06, 0, Math.PI * 2);
+            ctx.stroke();
+          } else {
+            // A slice of a circle through both corners of the mouth and the lowest point of the
+            // smile. When you hover, it dips further (k from 0 to 1).
+            const k = squint ? 0 : c.smile;
+            const w = s * 0.16;
+            const h = Math.max(0.05, w * (0.32 + 0.5 * k));
+            const top = s * 0.06;
+            const R = (w * w + h * h) / (2 * h);
+            const centerY = top + h - R;
+            const a0 = Math.asin(Math.min(1, (top - centerY) / R));
+            ctx.arc(0, centerY, R, a0, Math.PI - a0);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // Step 13 · Droplets and rings from popped balloons.
+        for (const d of drops) {
+          ctx.fillStyle = d.color;
+          ctx.beginPath();
+          ctx.arc(d.x, d.y, Math.max(0.1, d.r * d.life), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        for (const g of rings) {
+          ctx.strokeStyle = g.color;
+          ctx.globalAlpha = 1 - g.t;
+          ctx.lineWidth = 3 * (1 - g.t);
+          ctx.beginPath();
+          ctx.arc(g.x, g.y, g.r * (1 + 0.5 * g.t), 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      // =========================================================================================
+      // Step 2 · The loop: about 60 times a second, compute and draw
+      // =========================================================================================
+
+      function frame() {
+        updateHover();
+        const now = performance.now();
+
+        for (const c of cells) {
+          // Step 12 · The mouth opens and closes on a spring (a small bounce, ~0.3 s).
+          const want = c === hovered || c === grabbed ? 1 : 0;
+          c.smileV = (c.smileV + (want - c.smile) * 0.22) * 0.68;
+          c.smile += c.smileV;
+
+          // Step 12 · Gaze: towards the pointer, in the face's rotation, at most 3.5 % of the radius.
+          const turned = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
+          let lx = 0;
+          let ly = 0;
+          if (pointerSeen) {
+            const dx = pointer.x - c.cx;
+            const dy = pointer.y - c.cy;
+            const d = Math.hypot(dx, dy) || 1;
+            const cos = Math.cos(-turned);
+            const sin = Math.sin(-turned);
+            lx = ((dx * cos - dy * sin) / d) * 0.035;
+            ly = ((dx * sin + dy * cos) / d) * 0.035;
+          }
+          c.lookX += (lx - c.lookX) * 0.15;
+          c.lookY += (ly - c.lookY) * 0.15;
+
+          // Step 12 · Blinking: after one ends, the next in 2–6 s (sometimes a quick double).
+          if (now > c.blinkAt + 130) c.blinkAt = now + (Math.random() < 0.2 ? 180 : 2000 + Math.random() * 4000);
+
+          // Step 12 · Hard knock: a sudden change in the centre's speed from one frame to the next.
+          const vx = c.cx - c.prevCx;
+          const vy = c.cy - c.prevCy;
+          if (Math.hypot(vx - c.vx, vy - c.vy) > 7 && c !== grabbed) c.squintUntil = now + 320;
+          c.vx = vx;
+          c.vy = vy;
+          c.prevCx = c.cx;
+          c.prevCy = c.cy;
+        }
+
+        // Step 13 · Droplets with gravity that shrink; rings that spread and fade (~0.4 s).
+        for (const d of drops) {
+          d.vy += 0.35;
+          d.vx *= 0.98;
+          d.x += d.vx;
+          d.y += d.vy;
+          d.life -= 0.025;
+        }
+        drops = drops.filter((d) => d.life > 0 && d.y < H + 20);
+        for (const g of rings) g.t += 0.06;
+        rings = rings.filter((g) => g.t < 1);
+
+        // Step 9 · Several small physics steps per frame: steadier than one big one.
+        for (let s = 0; s < SUBSTEPS; s++) step();
+        draw();
+        requestAnimationFrame(frame);
+      }
+
+      // =========================================================================================
+      // Step 13 · Popping
+      // =========================================================================================
+
+      function pop(c) {
+        cells = cells.filter((k) => k !== c);
+        // The neighbours get a fright: «o» for ~0.7 s.
+        const until = performance.now() + 700;
+        for (const k of cells) {
+          if (Math.hypot(k.cx - c.cx, k.cy - c.cy) < (c.r + k.r) * 1.6) k.surprisedUntil = until;
+        }
+        if (grabbed === c) grabbed = null;
+        if (hovered === c) hovered = null;
+        rings.push({ x: c.cx, y: c.cy, r: c.r, t: 0, color: c.color });
+        const n = 10 + Math.round(c.r / 8);
+        for (let i = 0; i < n; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const v = 3 + Math.random() * 6;
+          drops.push({
+            x: c.cx + Math.cos(a) * c.r * 0.8,
+            y: c.cy + Math.sin(a) * c.r * 0.8,
+            vx: Math.cos(a) * v,
+            vy: Math.sin(a) * v - 2,
+            r: 2 + Math.random() * (c.r / 14),
+            life: 1,
+            color: c.color,
+          });
+        }
+      }
+
+      // =========================================================================================
+      // Step 11 · The pointer: dragging and hover (and, from step 13, double-click)
+      // =========================================================================================
+
+      // The vertiki under the pointer (the top one if they overlap: the last one drawn).
+      function cellAt(x, y) {
+        for (let k = cells.length - 1; k >= 0; k--) {
+          const c = cells[k];
+          if (Math.hypot(x - c.cx, y - c.cy) <= c.r) return c;
+        }
+        return null;
+      }
+
+      // Step 13 · Double-click or double-tap, detected by hand so it works the same with a mouse
+      // and on touch screens: two presses less than 320 ms and 30 px apart.
+      let lastDown = { t: 0, x: 0, y: 0 };
+
+      canvas.addEventListener('pointerdown', (e) => {
+        pointerSeen = true;
+        pointer = { x: e.clientX, y: e.clientY };
+        const now = performance.now();
+        const double = now - lastDown.t < 320 && Math.hypot(e.clientX - lastDown.x, e.clientY - lastDown.y) < 30;
+        lastDown = double ? { t: 0, x: 0, y: 0 } : { t: now, x: e.clientX, y: e.clientY };
+        // Step 13 · Double-click on a vertiki: pops it.
+        if (double) {
+          const hit = cellAt(e.clientX, e.clientY);
+          if (hit) {
+            pop(hit);
+            return;
+          }
+        }
+
+        grabbed = cellAt(e.clientX, e.clientY);
+        if (!grabbed) return;
+        grabOffset = { x: e.clientX - grabbed.cx, y: e.clientY - grabbed.cy };
+        // The grabbed one is now drawn on top of the others.
+        cells = [...cells.filter((c) => c !== grabbed), grabbed];
+        // Keep receiving movement even if the pointer leaves the canvas.
+        canvas.setPointerCapture(e.pointerId);
+        canvas.classList.add('is-dragging');
+      });
+
+      let mouseInside = false;
+      canvas.addEventListener('pointermove', (e) => {
+        pointerSeen = true;
+        pointer = { x: e.clientX, y: e.clientY };
+        mouseInside = e.pointerType === 'mouse';
+      });
+      canvas.addEventListener('pointerleave', () => {
+        mouseInside = false;
+        hovered = null;
+      });
+
+      function release() {
+        grabbed = null;
+        canvas.classList.remove('is-dragging');
+      }
+      canvas.addEventListener('pointerup', release);
+      canvas.addEventListener('pointercancel', release);
+
+      // What's under the mouse, every frame (vertikis move even when the mouse is still): for
+      // the cursor (a hand on top) and, from step 12, the smile.
+      function updateHover() {
+        hovered = mouseInside ? cellAt(pointer.x, pointer.y) : null;
+        canvas.classList.toggle('is-over', !!hovered);
+      }
+
+      // =========================================================================================
+      // Let's go!
+      // =========================================================================================
+
+      window.addEventListener('resize', resize);
+      resize();
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>

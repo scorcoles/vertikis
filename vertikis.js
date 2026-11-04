@@ -2,17 +2,18 @@
 // chocar, y que se pueden arrastrar, reventar y crear. Un experimento de VERTIK.
 // Homenaje a la home de yugop.com (Yugo Nakamura, 2005).
 //
-// Todo está en este archivo, en el mismo orden que el tutorial del README: cada sección
-// lleva el número de su paso.
+// Este archivo se genera con «node tools/build.mjs» a partir de src/vertikis.js.
 
 // =========================================================================================
 // Paso 1 · El escenario: un canvas que ocupa la ventana
 // =========================================================================================
 
 const canvas = document.querySelector('[data-cells]');
+// El «pincel» con el que dibujamos en el canvas.
 const ctx = canvas.getContext('2d');
 
-let W = 0; // ancho y alto del escenario, en píxeles CSS
+// Ancho y alto del escenario, en píxeles CSS.
+let W = 0;
 let H = 0;
 
 function resize() {
@@ -26,14 +27,16 @@ function resize() {
   canvas.height = Math.round(H * dpr);
   // A partir de aquí dibujamos en píxeles CSS y el navegador multiplica por dpr.
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  if (first) populate(); // la primera vez, llenamos el escenario (paso 7)
+  // La primera vez, llenamos el escenario (paso 7).
+  if (first) populate();
 }
 
 // =========================================================================================
 // Paso 3 · El objeto vertiki: un anillo de puntos
 // =========================================================================================
 
-const POINTS = 28; // puntos del contorno de cada vertiki
+// Puntos del contorno de cada vertiki.
+const POINTS = 28;
 
 // Forma de reposo común: un círculo de radio 1. Cada vertiki la multiplica por su radio.
 // Guardamos x e y seguidas: [x0, y0, x1, y1, …].
@@ -44,9 +47,8 @@ for (let i = 0; i < POINTS; i++) {
   UNIT[i * 2 + 1] = Math.sin(a);
 }
 
-// Paso 10 · Colores planos, alegres pero algo apagados. La cara va en tinta oscura encima.
+// Paso 10 · Colores planos, alegres pero algo apagados.
 const PALETTE = ['#f29e4c', '#f2c14e', '#4fb3a9', '#ef7aa1', '#6c9bd2', '#9ccc5a', '#4caf72', '#9b86c9', '#f0806c'];
-const INK = '#1b1b1b';
 
 // Mezcla un color hex con blanco (t > 0) o con negro (t < 0).
 function tint(hex, t) {
@@ -57,11 +59,12 @@ function tint(hex, t) {
   return `rgb(${ch(n >> 16)}, ${ch((n >> 8) & 255)}, ${ch(n & 255)})`;
 }
 
-let cells = []; // todos los vertikis («células») del escenario
+// Todos los vertikis («células») del escenario.
+let cells = [];
 
 function makeCell(cx, cy, r) {
-  // Forma de reposo ligeramente ovalada (orgánica, no un círculo perfecto): el eje largo
-  // mide r·(1+e) y el corto r·(1−e), con el eje largo en una dirección al azar.
+  // Paso 10 · Forma de reposo un poco ovalada (orgánica, no un círculo perfecto): el eje
+  // largo mide r·(1+e) y el corto r·(1−e), con el eje largo en una dirección al azar.
   const e = 0.02 + Math.random() * 0.04;
   const turn = Math.random() * Math.PI;
   const cos = Math.cos(turn);
@@ -76,38 +79,43 @@ function makeCell(cx, cy, r) {
   }
   const color = PALETTE[Math.floor(Math.random() * PALETTE.length)];
   return {
-    r, // radio de reposo
-    e, // cuánto se ovala
-    x, // posición actual de cada punto
+    // Radio de reposo.
+    r,
+    // Posición actual de cada punto.
+    x,
     y,
-    px: x.slice(), // posición en el paso anterior (paso 4: Verlet)
+    // Posición en el paso anterior (paso 4: Verlet).
+    px: x.slice(),
     py: y.slice(),
-    cx, // centro y giro de la forma (paso 6)
+    // Centro de la forma (y, desde el paso 6, su giro).
+    cx,
     cy,
+    // Paso 10 · cuánto se ovala, giro inicial y colores.
+    e,
     angle: turn,
-    base: turn, // giro con el que nació: la cara se mide desde aquí, para que nazca derecha
-    // Paso 10 · color y dos tonos para el degradado
     color,
     light: tint(color, 0.16),
     shade: tint(color, -0.06),
-    // Paso 11 · la cara
-    smile: 0, // 0 = «:)», 1 = «:D»; se anima con un muelle (smileV es su velocidad)
+    // Paso 12 · La cara. «base» es el giro con el que nació: la cara se mide desde aquí,
+    // para que nazca derecha. smile: 0 = «:)», 1 = «:D», con un muelle (smileV).
+    base: turn,
+    smile: 0,
     smileV: 0,
-    lookX: 0, // hacia dónde miran los ojos (suavizado)
+    lookX: 0,
     lookY: 0,
-    blinkAt: performance.now() + 1000 + Math.random() * 5000, // próximo parpadeo (ms)
-    surprisedUntil: 0, // boca «o» y ojos abiertos (al reventar una vecina)
-    squintUntil: 0, // ojos apretados «> <» (tras un golpe fuerte)
-    vx: 0, // velocidad del centro en el último fotograma (para detectar golpes)
+    blinkAt: performance.now() + 1000 + Math.random() * 5000,
+    surprisedUntil: 0,
+    squintUntil: 0,
+    vx: 0,
     vy: 0,
     prevCx: cx,
     prevCy: cy,
-    // Paso 14 · al nacer
-    target: undefined, // radio al que crece una recién creada
-    youngUntil: undefined, // hasta cuándo no se puede reventar
-    // Paso 15 · al lanzarlo
-    thrownUntil: undefined, // hasta cuándo suena al chocar con otros
-    touching: undefined, // con qué vertikis se tocaba ya (para sonar solo al empezar a tocar)
+    // Paso 14 · Al nacer: el radio al que crece y hasta cuándo no se puede reventar.
+    target: undefined,
+    youngUntil: undefined,
+    // Paso 15 · Al lanzarlo: hasta cuándo suena al chocar, y con quién se tocaba ya.
+    thrownUntil: undefined,
+    touching: undefined,
   };
 }
 
@@ -120,7 +128,8 @@ function makeCell(cx, cy, r) {
 function populate() {
   cells = [];
   const unit = Math.min(W, H);
-  const target = W * H * 0.5; // superficie que ocupan (con la gravedad se amontonan abajo)
+  // Superficie que ocupan: la mitad de la pantalla.
+  const target = W * H * 0.5;
   let area = 0;
   for (let tries = 0; tries < 6000 && area < target; tries++) {
     const r = unit * (0.09 + Math.random() ** 1.3 * 0.12);
@@ -137,22 +146,27 @@ function populate() {
 // Pasos 4, 5, 6, 8 y 9 · La física
 // =========================================================================================
 
-const SUBSTEPS = 4; // paso 9: cuántas veces calculamos la física en cada fotograma
-const FRICTION = 0.96; // paso 4: cuánta velocidad conserva cada punto en cada paso
-const STIFFNESS = 0.45; // paso 6: cuánto tira cada punto hacia su forma de reposo
-// Gravedad (px por paso²). En móvil, más baja y con la dirección que marque la inclinación
-// del teléfono (paso 16); en escritorio, siempre hacia abajo.
+// Paso 9: cuántas veces calculamos la física en cada fotograma.
+const SUBSTEPS = 4;
+// Paso 4: cuánta velocidad conserva cada punto en cada paso.
+const FRICTION = 0.96;
+// Paso 6: cuánto tira cada punto hacia su forma de reposo.
+const STIFFNESS = 0.45;
+// Gravedad (px por paso²).
+// Paso 16 · En el móvil, más baja y con la dirección que marque la inclinación del
+// teléfono; en escritorio, siempre hacia abajo. gravX y gravY: su dirección (largo 1).
 const touchDevice = window.matchMedia('(pointer: coarse)').matches;
 const GRAVITY = touchDevice ? 0.27 : 0.45;
-let gravX = 0; // dirección de la gravedad (vector de largo 1)
+let gravX = 0;
 let gravY = 1;
 
-// Paso 12 · el arrastre
-let grabbed = null; // el vertiki agarrado
-let hovered = null; // el vertiki bajo el ratón
-let pointerSeen = false; // hasta que se mueve el puntero, los ojos miran al frente
+// Paso 11 · El puntero: el vertiki agarrado, el que está bajo el ratón y dónde está el puntero.
+let grabbed = null;
+let hovered = null;
 let grabOffset = { x: 0, y: 0 };
 let pointer = { x: 0, y: 0 };
+// Paso 12 · Hasta que se mueve el puntero, los ojos miran al frente.
+let pointerSeen = false;
 
 // Paso 6 · Dónde está y cuánto ha girado la forma: el centro es la media de los puntos;
 // el giro, el ángulo que mejor encaja la forma de reposo con la actual.
@@ -193,7 +207,7 @@ function step() {
       c.y[i] += vy + GRAVITY * gravY;
     }
 
-    // Paso 12 · Arrastre: todo el vertiki se acerca al puntero. La posición anterior se
+    // Paso 11 · Arrastre: todo el vertiki se acerca al puntero. La posición anterior se
     // mueve casi lo mismo, para no acumular velocidad (temblaría); el 30 % que queda es el
     // impulso con el que sale lanzado al soltarlo.
     if (c === grabbed) {
@@ -214,7 +228,8 @@ function step() {
     for (let i = 0; i < POINTS; i++) {
       const qx = UNIT[i * 2] * c.r * (1 + c.e);
       const qy = UNIT[i * 2 + 1] * c.r * (1 - c.e);
-      const gx = c.cx + qx * cos - qy * sin; // dónde «debería» estar este punto
+      // Dónde «debería» estar este punto.
+      const gx = c.cx + qx * cos - qy * sin;
       const gy = c.cy + qx * sin + qy * cos;
       c.x[i] += (gx - c.x[i]) * STIFFNESS;
       c.y[i] += (gy - c.y[i]) * STIFFNESS;
@@ -228,14 +243,15 @@ function step() {
     for (let b = 0; b < cells.length; b++) {
       if (a === b) continue;
       const B = cells[b];
+      // Si están lejos, ni lo miramos.
       const reach = A.r + B.r;
-      if (Math.abs(A.cx - B.cx) > reach || Math.abs(A.cy - B.cy) > reach) continue; // lejos
+      if (Math.abs(A.cx - B.cx) > reach || Math.abs(A.cy - B.cy) > reach) continue;
       const R = B.r * 0.96;
       for (let i = 0; i < POINTS; i++) {
         const dx = A.x[i] - B.cx;
         const dy = A.y[i] - B.cy;
         const d2 = dx * dx + dy * dy;
-        if (d2 >= R * R || d2 === 0) continue; // este punto está fuera
+        if (d2 >= R * R || d2 === 0) continue;
         const d = Math.sqrt(d2);
         const push = (R - d) * 0.5;
         A.x[i] += (dx / d) * push;
@@ -246,7 +262,8 @@ function step() {
 
   // Paso 8b · Separación entre vertikis enteros: si dos centros están más cerca de lo que
   // permiten sus tamaños (con un 12 % de margen para que se sigan aplastando), se apartan
-  // como bloques. Pesan según su superficie; el agarrado pesa más, para apartar a los demás.
+  // como bloques. Pesan según su superficie.
+  // El agarrado pesa más, para poder apartar a los demás.
   for (let a = 0; a < cells.length; a++) {
     const A = cells[a];
     for (let b = a + 1; b < cells.length; b++) {
@@ -305,16 +322,18 @@ function step() {
 }
 
 // =========================================================================================
-// Pasos 3, 10, 11 y 13 · Dibujar
+// Dibujar (pasos 3, 10, 12 y 13)
 // =========================================================================================
 
-let drops = []; // paso 13: gotas de los globos reventados
-let rings = []; // y ondas que se abren
+// Paso 13 · Gotas de los globos reventados y ondas que se abren.
+let drops = [];
+let rings = [];
+// Paso 12 · Tinta de las caras.
+const INK = '#1b1b1b';
 
 function draw() {
   ctx.clearRect(0, 0, W, H);
 
-  // Cuerpos.
   for (const c of cells) {
     // Paso 10 · Levísimo degradado: luz fija arriba a la izquierda, más claro ahí y un poco
     // más oscuro en el borde opuesto.
@@ -335,7 +354,7 @@ function draw() {
     ctx.fill();
   }
 
-  // Paso 11 · Caras: dos ojos que miran al puntero y parpadean, y una sonrisa que se curva
+  // Paso 12 · Caras: dos ojos que miran al puntero y parpadean, y una sonrisa que se curva
   // más con el ratón encima. Reacciones: «o» de susto y ojos apretados «> <».
   const now = performance.now();
   ctx.fillStyle = INK;
@@ -343,7 +362,8 @@ function draw() {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   for (const c of cells) {
-    const s = c.r; // todo se mide en proporción al radio
+    // Todo se mide en proporción al radio.
+    const s = c.r;
     const squint = now < c.squintUntil;
     const surprised = !squint && now < c.surprisedUntil;
     ctx.save();
@@ -381,15 +401,16 @@ function draw() {
     ctx.lineWidth = Math.max(1, s * 0.032);
     ctx.beginPath();
     if (surprised) {
-      ctx.arc(0, s * 0.12, s * 0.06, 0, Math.PI * 2); // «o» de susto
+      // «o» de susto.
+      ctx.arc(0, s * 0.12, s * 0.06, 0, Math.PI * 2);
       ctx.stroke();
     } else {
       // Un trozo de círculo que pasa por las dos comisuras y por el punto más bajo de la
       // sonrisa. Con el ratón encima se hunde más (k de 0 a 1).
       const k = squint ? 0 : c.smile;
-      const w = s * 0.16; // medio ancho de la boca
-      const h = Math.max(0.05, w * (0.32 + 0.5 * k)); // cuánto baja el centro
-      const top = s * 0.06; // altura de las comisuras
+      const w = s * 0.16;
+      const h = Math.max(0.05, w * (0.32 + 0.5 * k));
+      const top = s * 0.06;
       const R = (w * w + h * h) / (2 * h);
       const centerY = top + h - R;
       const a0 = Math.asin(Math.min(1, (top - centerY) / R));
@@ -422,17 +443,17 @@ function draw() {
 // =========================================================================================
 
 function frame() {
-  updateHover(); // paso 12
-  updateGravity(); // paso 16
+  updateHover();
+  updateGravity();
   const now = performance.now();
 
   for (const c of cells) {
-    // Paso 11 · La boca se abre o se cierra con un muelle (pequeño rebote, ~0,3 s).
+    // Paso 12 · La boca se abre o se cierra con un muelle (pequeño rebote, ~0,3 s).
     const want = c === hovered || c === grabbed ? 1 : 0;
     c.smileV = (c.smileV + (want - c.smile) * 0.22) * 0.68;
     c.smile += c.smileV;
 
-    // Paso 11 · Mirada: hacia el puntero, en el giro de la cara, como mucho un 3,5 % del radio.
+    // Paso 12 · Mirada: hacia el puntero, en el giro de la cara, como mucho un 3,5 % del radio.
     const turned = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
     let lx = 0;
     let ly = 0;
@@ -448,10 +469,10 @@ function frame() {
     c.lookX += (lx - c.lookX) * 0.15;
     c.lookY += (ly - c.lookY) * 0.15;
 
-    // Paso 11 · Parpadeo: al acabar uno, el siguiente en 2–6 s (a veces doble, enseguida).
+    // Paso 12 · Parpadeo: al acabar uno, el siguiente en 2–6 s (a veces doble, enseguida).
     if (now > c.blinkAt + 130) c.blinkAt = now + (Math.random() < 0.2 ? 180 : 2000 + Math.random() * 4000);
 
-    // Paso 11 · Golpe fuerte: cambio brusco de velocidad del centro de un fotograma a otro.
+    // Paso 12 · Golpe fuerte: cambio brusco de velocidad del centro de un fotograma a otro.
     const vx = c.cx - c.prevCx;
     const vy = c.cy - c.prevCy;
     if (Math.hypot(vx - c.vx, vy - c.vy) > 7 && c !== grabbed) c.squintUntil = now + 320;
@@ -459,6 +480,12 @@ function frame() {
     c.vy = vy;
     c.prevCx = c.cx;
     c.prevCy = c.cy;
+
+    // Paso 14 · Los recién creados crecen rápido hasta su tamaño.
+    if (c.target !== undefined) {
+      c.r += (c.target - c.r) * 0.2;
+      if (Math.abs(c.target - c.r) < 0.5) c.target = undefined;
+    }
 
     // Paso 15 · Lanzado: un «toc» suave cada vez que empieza a tocar a otro (ver «bump»).
     if (c.thrownUntil !== undefined) {
@@ -474,12 +501,6 @@ function frame() {
         }
         c.touching = touching;
       }
-    }
-
-    // Paso 14 · Los recién creados crecen rápido hasta su tamaño.
-    if (c.target !== undefined) {
-      c.r += (c.target - c.r) * 0.2;
-      if (Math.abs(c.target - c.r) < 0.5) c.target = undefined;
     }
   }
 
@@ -506,8 +527,9 @@ function frame() {
 // =========================================================================================
 
 // El navegador no deja sonar nada hasta el primer clic o toque: hasta entonces, mudo.
+// «master» es el volumen general: todo pasa por aquí.
 let audio = null;
-let master = null; // volumen general: todo pasa por aquí
+let master = null;
 let unlocked = false;
 const VOLUME = 0.66;
 
@@ -645,7 +667,7 @@ function feed(c) {
 }
 
 // =========================================================================================
-// Paso 12 · El puntero: arrastrar, doble clic, hover
+// Paso 11 · El puntero: arrastrar y hover (y, desde el paso 13, doble clic)
 // =========================================================================================
 
 // El vertiki bajo el puntero (el de encima si se solapan: el último dibujado).
@@ -657,13 +679,14 @@ function cellAt(x, y) {
   return null;
 }
 
-// Doble clic o doble toque, detectado a mano para que funcione igual con ratón y en táctil:
-// dos pulsaciones en menos de 320 ms y a menos de 30 px.
+// Paso 13 · Doble clic o doble toque, detectado a mano para que funcione igual con ratón
+// y en táctil: dos pulsaciones en menos de 320 ms y a menos de 30 px.
 let lastDown = { t: 0, x: 0, y: 0 };
 
 canvas.addEventListener('pointerdown', (e) => {
   pointerSeen = true;
-  // Primer gesto: ya se puede sonar (y en iPhone, pedir el acelerómetro).
+  // Paso 15 · Primer gesto: ya se puede sonar.
+  // Paso 16 · Y en iPhone, pedir el acelerómetro.
   if (!unlocked) {
     unlocked = true;
     ac();
@@ -673,13 +696,12 @@ canvas.addEventListener('pointerdown', (e) => {
   const now = performance.now();
   const double = now - lastDown.t < 320 && Math.hypot(e.clientX - lastDown.x, e.clientY - lastDown.y) < 30;
   lastDown = double ? { t: 0, x: 0, y: 0 } : { t: now, x: e.clientX, y: e.clientY };
-
   const hit = cellAt(e.clientX, e.clientY);
   if (hit && hit.youngUntil !== undefined && now < hit.youngUntil) {
-    // Un recién nacido no revienta: cada toque (simple o doble) lo hace crecer.
+    // Paso 14 · Un recién nacido no revienta: cada toque (simple o doble) lo hace crecer.
     feed(hit);
     lastDown = { t: 0, x: 0, y: 0 };
-    if (!cells.includes(hit)) return; // explotó
+    if (!cells.includes(hit)) return;
   } else if (double) {
     // Doble clic: sobre un vertiki lo revienta; en un hueco crea uno nuevo.
     if (hit) pop(hit);
@@ -709,7 +731,7 @@ canvas.addEventListener('pointerleave', () => {
 });
 
 function release() {
-  // Si sale lanzado con fuerza, sus choques suenan durante 1,5 s (paso 15).
+  // Paso 15 · Si sale lanzado con fuerza, sus choques suenan durante 1,5 s.
   if (grabbed && Math.hypot(grabbed.vx, grabbed.vy) > 2) {
     const g = grabbed;
     g.thrownUntil = performance.now() + 1500;
@@ -722,10 +744,9 @@ canvas.addEventListener('pointerup', release);
 canvas.addEventListener('pointercancel', release);
 
 // Qué hay bajo el ratón, en cada fotograma (los vertikis se mueven aunque el ratón esté
-// quieto): para la sonrisa y el cursor («+» en los huecos, mano encima).
+// quieto): para el cursor (mano encima) y, desde el paso 12, la sonrisa.
 function updateHover() {
-  const over = mouseInside ? cellAt(pointer.x, pointer.y) : null;
-  hovered = over;
+  hovered = mouseInside ? cellAt(pointer.x, pointer.y) : null;
   canvas.classList.toggle('is-over', !!hovered);
 }
 
@@ -785,20 +806,6 @@ function updateGravity() {
   gravX += (tiltX - gravX) * 0.1;
   gravY += (tiltY - gravY) * 0.1;
 }
-
-// =========================================================================================
-// El homenaje: un clic o un toque abre o cierra la captura de yugop.com
-// =========================================================================================
-
-const homage = document.querySelector('[data-homage]');
-function setHomageOpen(open) {
-  homage.classList.toggle('is-open', open);
-  homage.setAttribute('aria-expanded', String(open));
-}
-homage.addEventListener('click', () => setHomageOpen(!homage.classList.contains('is-open')));
-document.addEventListener('pointerdown', (e) => {
-  if (!homage.contains(e.target)) setHomageOpen(false);
-});
 
 // =========================================================================================
 // ¡Arrancamos!

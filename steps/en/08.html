@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>vertikis · step 8: Collisions</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #fff; overflow: hidden; overscroll-behavior: none; }
+      canvas {
+        position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none;
+      }
+      .step {
+        position: fixed; left: 8px; top: 8px; z-index: 1; max-width: calc(100vw - 16px); margin: 0;
+        font: 10px/1.6 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.04em; color: #000;
+        pointer-events: none;
+      }
+      .step b { display: inline-block; padding: 2px 5px; background: #000; color: #fff; font-weight: normal; text-transform: uppercase; }
+      .step a { color: inherit; pointer-events: auto; margin-right: 8px; }
+    </style>
+  </head>
+  <body>
+    <canvas data-cells></canvas>
+    <p class="step">
+      <b>step 8 of 16 · Collisions</b><br />
+      They push, pile up and flatten where they touch.<br />
+      <a href="07.html">← previous</a><a href="09.html">next →</a><a href="https://github.com/scorcoles/vertikis/blob/main/README.en.md#step-8">tutorial</a>
+    </p>
+    <script>
+      // Vertikis: soft, colourful creatures with faces that fall, push each other and squash
+      // when they collide, and that you can drag, pop and create. An experiment by VERTIK.
+      // A tribute to the yugop.com home page (Yugo Nakamura, 2005).
+
+      // =========================================================================================
+      // Step 1 · The stage: a canvas that fills the window
+      // =========================================================================================
+
+      const canvas = document.querySelector('[data-cells]');
+      // The «brush» we draw on the canvas with.
+      const ctx = canvas.getContext('2d');
+
+      // Width and height of the stage, in CSS pixels.
+      let W = 0;
+      let H = 0;
+
+      function resize() {
+        // On retina screens there are 2 real pixels per CSS pixel: we draw at double size so it
+        // looks sharp (×2 at most, so we don't overdo it).
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const first = W === 0;
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width = Math.round(W * dpr);
+        canvas.height = Math.round(H * dpr);
+        // From here on we draw in CSS pixels and the browser multiplies by dpr.
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        // The first time, we fill the stage (step 7).
+        if (first) populate();
+      }
+
+      // =========================================================================================
+      // Step 3 · The vertiki object: a ring of points
+      // =========================================================================================
+
+      // Points around the outline of each vertiki.
+      const POINTS = 28;
+
+      // Shared resting shape: a circle of radius 1. Each vertiki multiplies it by its radius.
+      // We store x and y one after the other: [x0, y0, x1, y1, …].
+      const UNIT = new Float32Array(POINTS * 2);
+      for (let i = 0; i < POINTS; i++) {
+        const a = (i / POINTS) * Math.PI * 2;
+        UNIT[i * 2] = Math.cos(a);
+        UNIT[i * 2 + 1] = Math.sin(a);
+      }
+
+      // All the vertikis («cells») on the stage.
+      let cells = [];
+
+      function makeCell(cx, cy, r) {
+        const x = new Float32Array(POINTS);
+        const y = new Float32Array(POINTS);
+        for (let i = 0; i < POINTS; i++) {
+          x[i] = cx + UNIT[i * 2] * r;
+          y[i] = cy + UNIT[i * 2 + 1] * r;
+        }
+        return {
+          // Resting radius.
+          r,
+          // Current position of each point.
+          x,
+          y,
+          // Position in the previous step (step 4: Verlet).
+          px: x.slice(),
+          py: y.slice(),
+          // Centre of the shape (and, from step 6, its rotation).
+          cx,
+          cy,
+          angle: 0,
+        };
+      }
+
+      // =========================================================================================
+      // Step 7 · Lots of vertikis
+      // =========================================================================================
+
+      // Assorted sizes, slightly overlapping, so that at the start they push each other and end
+      // up packed together and flattened where they touch.
+      function populate() {
+        cells = [];
+        const unit = Math.min(W, H);
+        // Area they cover: half the screen.
+        const target = W * H * 0.5;
+        let area = 0;
+        for (let tries = 0; tries < 6000 && area < target; tries++) {
+          const r = unit * (0.09 + Math.random() ** 1.3 * 0.12);
+          const cx = r * 0.6 + Math.random() * (W - r * 1.2);
+          const cy = r * 0.6 + Math.random() * (H - r * 1.2);
+          // If it overlaps another one too much, we try somewhere else.
+          if (cells.some((c) => Math.hypot(c.cx - cx, c.cy - cy) < (c.r + r) * 0.82)) continue;
+          cells.push(makeCell(cx, cy, r));
+          area += Math.PI * r * r;
+        }
+      }
+
+      // =========================================================================================
+      // Steps 4, 5, 6, 8 and 9 · The physics
+      // =========================================================================================
+
+      // Step 9: how many times we run the physics each frame.
+      // Step 4: how much speed each point keeps on every step.
+      const FRICTION = 0.96;
+      // Step 6: how strongly each point pulls towards its resting shape.
+      const STIFFNESS = 0.45;
+      // Gravity (px per step²).
+      const GRAVITY = 0.45;
+
+      // Step 6 · Where the shape is and how far it has turned: the centre is the average of the
+      // points; the rotation, the angle that best fits the resting shape onto the current one.
+      function fitShape(c) {
+        let sx = 0;
+        let sy = 0;
+        for (let i = 0; i < POINTS; i++) {
+          sx += c.x[i];
+          sy += c.y[i];
+        }
+        c.cx = sx / POINTS;
+        c.cy = sy / POINTS;
+        let dot = 0;
+        let cross = 0;
+        for (let i = 0; i < POINTS; i++) {
+          const qx = UNIT[i * 2] * c.r;
+          const qy = UNIT[i * 2 + 1] * c.r;
+          const rx = c.x[i] - c.cx;
+          const ry = c.y[i] - c.cy;
+          dot += qx * rx + qy * ry;
+          cross += qx * ry - qy * rx;
+        }
+        c.angle = Math.atan2(cross, dot);
+      }
+
+      function step() {
+        for (const c of cells) {
+          // Step 4 · Inertia with friction, plus gravity (Verlet integration: the velocity is
+          // the difference between the current position and the previous one).
+          for (let i = 0; i < POINTS; i++) {
+            const f = FRICTION;
+            const vx = (c.x[i] - c.px[i]) * f;
+            const vy = (c.y[i] - c.py[i]) * f;
+            c.px[i] = c.x[i];
+            c.py[i] = c.y[i];
+            c.x[i] += vx;
+            c.y[i] += vy + GRAVITY;
+          }
+
+          // Step 6 · Back to the resting shape, rotated and centred as it is now.
+          fitShape(c);
+          const cos = Math.cos(c.angle);
+          const sin = Math.sin(c.angle);
+          for (let i = 0; i < POINTS; i++) {
+            const qx = UNIT[i * 2] * c.r;
+            const qy = UNIT[i * 2 + 1] * c.r;
+            // Where this point «should» be.
+            const gx = c.cx + qx * cos - qy * sin;
+            const gy = c.cy + qx * sin + qy * cos;
+            c.x[i] += (gx - c.x[i]) * STIFFNESS;
+            c.y[i] += (gy - c.y[i]) * STIFFNESS;
+          }
+        }
+
+        // Step 8a · Point collisions: every point that gets inside another vertiki (treated as a
+        // circle) is pushed back out. That's how they flatten where they touch.
+        for (let a = 0; a < cells.length; a++) {
+          const A = cells[a];
+          for (let b = 0; b < cells.length; b++) {
+            if (a === b) continue;
+            const B = cells[b];
+            // If they're far apart, we don't even check.
+            const reach = A.r + B.r;
+            if (Math.abs(A.cx - B.cx) > reach || Math.abs(A.cy - B.cy) > reach) continue;
+            const R = B.r * 0.96;
+            for (let i = 0; i < POINTS; i++) {
+              const dx = A.x[i] - B.cx;
+              const dy = A.y[i] - B.cy;
+              const d2 = dx * dx + dy * dy;
+              if (d2 >= R * R || d2 === 0) continue;
+              const d = Math.sqrt(d2);
+              const push = (R - d) * 0.5;
+              A.x[i] += (dx / d) * push;
+              A.y[i] += (dy / d) * push;
+            }
+          }
+        }
+
+        // Step 8b · Separating whole vertikis: if two centres are closer than their sizes allow
+        // (with a 12 % margin so they still squash), they're pushed apart as blocks. They weigh
+        // according to their area.
+        for (let a = 0; a < cells.length; a++) {
+          const A = cells[a];
+          for (let b = a + 1; b < cells.length; b++) {
+            const B = cells[b];
+            let dx = B.cx - A.cx;
+            let dy = B.cy - A.cy;
+            let d = Math.hypot(dx, dy);
+            const min = (A.r + B.r) * 0.88;
+            if (d >= min) continue;
+            if (d < 0.01) {
+              // Centres almost identical: they split in a random direction.
+              const t = Math.random() * Math.PI * 2;
+              dx = Math.cos(t);
+              dy = Math.sin(t);
+              d = 1;
+            }
+            const nx = dx / d;
+            const ny = dy / d;
+            const ma = A.r * A.r;
+            const mb = B.r * B.r;
+            // Half the overlap per step (stable); almost all of it without adding speed.
+            const push = (min - d) * 0.5;
+            const sa = push * (mb / (ma + mb));
+            const sb = push * (ma / (ma + mb));
+            for (let i = 0; i < POINTS; i++) {
+              A.x[i] -= nx * sa;
+              A.y[i] -= ny * sa;
+              A.px[i] -= nx * sa * 0.8;
+              A.py[i] -= ny * sa * 0.8;
+              B.x[i] += nx * sb;
+              B.y[i] += ny * sb;
+              B.px[i] += nx * sb * 0.8;
+              B.py[i] += ny * sb * 0.8;
+            }
+            A.cx -= nx * sa;
+            A.cy -= ny * sa;
+            B.cx += nx * sb;
+            B.cy += ny * sb;
+          }
+        }
+
+        // Step 5 · The edges: no point leaves the window. Touching an edge slows down sliding
+        // along it (friction), on all four edges.
+        for (const c of cells) {
+          for (let i = 0; i < POINTS; i++) {
+            if (c.x[i] < 0 || c.x[i] > W) {
+              c.x[i] = c.x[i] < 0 ? 0 : W;
+              c.py[i] = c.y[i] - (c.y[i] - c.py[i]) * 0.6;
+            }
+            if (c.y[i] < 0 || c.y[i] > H) {
+              c.y[i] = c.y[i] < 0 ? 0 : H;
+              c.px[i] = c.x[i] - (c.x[i] - c.px[i]) * 0.6;
+            }
+          }
+        }
+      }
+
+      // =========================================================================================
+      // Drawing (steps 3, 10, 12 and 13)
+      // =========================================================================================
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+
+        for (const c of cells) {
+          // A neutral grey, until colours arrive in step 10.
+          ctx.fillStyle = '#cfcfcf';
+          // Step 3 · Smooth outline: curves through the midpoints of the ring.
+          ctx.beginPath();
+          const mx = (c.x[POINTS - 1] + c.x[0]) / 2;
+          const my = (c.y[POINTS - 1] + c.y[0]) / 2;
+          ctx.moveTo(mx, my);
+          for (let i = 0; i < POINTS; i++) {
+            const j = (i + 1) % POINTS;
+            ctx.quadraticCurveTo(c.x[i], c.y[i], (c.x[i] + c.x[j]) / 2, (c.y[i] + c.y[j]) / 2);
+          }
+          ctx.fill();
+        }
+      }
+
+      // =========================================================================================
+      // Step 2 · The loop: about 60 times a second, compute and draw
+      // =========================================================================================
+
+      function frame() {
+        step();
+        draw();
+        requestAnimationFrame(frame);
+      }
+
+      // =========================================================================================
+      // Let's go!
+      // =========================================================================================
+
+      window.addEventListener('resize', resize);
+      resize();
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>

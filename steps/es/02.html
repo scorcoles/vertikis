@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>vertikis · paso 2: El bucle</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #fff; overflow: hidden; overscroll-behavior: none; }
+      canvas {
+        position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none;
+      }
+      .step {
+        position: fixed; left: 8px; top: 8px; z-index: 1; max-width: calc(100vw - 16px); margin: 0;
+        font: 10px/1.6 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.04em; color: #000;
+        pointer-events: none;
+      }
+      .step b { display: inline-block; padding: 2px 5px; background: #000; color: #fff; font-weight: normal; text-transform: uppercase; }
+      .step a { color: inherit; pointer-events: auto; margin-right: 8px; }
+    </style>
+  </head>
+  <body>
+    <canvas data-cells></canvas>
+    <p class="step">
+      <b>paso 2 de 16 · El bucle</b><br />
+      El círculo cruza la pantalla: borramos y dibujamos 60 veces por segundo.<br />
+      <a href="01.html">← anterior</a><a href="03.html">siguiente →</a><a href="https://github.com/scorcoles/vertikis/blob/main/README.md#paso-2">tutorial</a>
+    </p>
+    <script>
+      // Vertikis: criaturas blandas de colores, con cara, que caen, se empujan y se deforman al
+      // chocar, y que se pueden arrastrar, reventar y crear. Un experimento de VERTIK.
+      // Homenaje a la home de yugop.com (Yugo Nakamura, 2005).
+
+      // =========================================================================================
+      // Paso 1 · El escenario: un canvas que ocupa la ventana
+      // =========================================================================================
+
+      const canvas = document.querySelector('[data-cells]');
+      // El «pincel» con el que dibujamos en el canvas.
+      const ctx = canvas.getContext('2d');
+
+      // Ancho y alto del escenario, en píxeles CSS.
+      let W = 0;
+      let H = 0;
+
+      function resize() {
+        // En pantallas retina hay 2 píxeles reales por cada píxel CSS: dibujamos al doble para
+        // que se vea nítido (como mucho ×2, para no gastar de más).
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width = Math.round(W * dpr);
+        canvas.height = Math.round(H * dpr);
+        // A partir de aquí dibujamos en píxeles CSS y el navegador multiplica por dpr.
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      // Para probar: un círculo que cruza la pantalla. Cada fotograma: borrar, mover, dibujar.
+      let x = 0;
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        x = (x + 3) % (W + 200);
+        ctx.fillStyle = 'tomato';
+        ctx.beginPath();
+        ctx.arc(x - 100, H / 2, 80, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // =========================================================================================
+      // Paso 2 · El bucle: unas 60 veces por segundo, calcular y dibujar
+      // =========================================================================================
+
+      function frame() {
+        draw();
+        requestAnimationFrame(frame);
+      }
+
+      // =========================================================================================
+      // ¡Arrancamos!
+      // =========================================================================================
+
+      window.addEventListener('resize', resize);
+      resize();
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>

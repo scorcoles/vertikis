@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>vertikis · paso 3: El objeto vertiki</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #fff; overflow: hidden; overscroll-behavior: none; }
+      canvas {
+        position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none;
+      }
+      .step {
+        position: fixed; left: 8px; top: 8px; z-index: 1; max-width: calc(100vw - 16px); margin: 0;
+        font: 10px/1.6 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.04em; color: #000;
+        pointer-events: none;
+      }
+      .step b { display: inline-block; padding: 2px 5px; background: #000; color: #fff; font-weight: normal; text-transform: uppercase; }
+      .step a { color: inherit; pointer-events: auto; margin-right: 8px; }
+    </style>
+  </head>
+  <body>
+    <canvas data-cells></canvas>
+    <p class="step">
+      <b>paso 3 de 16 · El objeto vertiki</b><br />
+      Un anillo de 28 puntos y una curva suave que pasa por ellos.<br />
+      <a href="02.html">← anterior</a><a href="04.html">siguiente →</a><a href="https://github.com/scorcoles/vertikis/blob/main/README.md#paso-3">tutorial</a>
+    </p>
+    <script>
+      // Vertikis: criaturas blandas de colores, con cara, que caen, se empujan y se deforman al
+      // chocar, y que se pueden arrastrar, reventar y crear. Un experimento de VERTIK.
+      // Homenaje a la home de yugop.com (Yugo Nakamura, 2005).
+
+      // =========================================================================================
+      // Paso 1 · El escenario: un canvas que ocupa la ventana
+      // =========================================================================================
+
+      const canvas = document.querySelector('[data-cells]');
+      // El «pincel» con el que dibujamos en el canvas.
+      const ctx = canvas.getContext('2d');
+
+      // Ancho y alto del escenario, en píxeles CSS.
+      let W = 0;
+      let H = 0;
+
+      function resize() {
+        // En pantallas retina hay 2 píxeles reales por cada píxel CSS: dibujamos al doble para
+        // que se vea nítido (como mucho ×2, para no gastar de más).
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const first = W === 0;
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width = Math.round(W * dpr);
+        canvas.height = Math.round(H * dpr);
+        // A partir de aquí dibujamos en píxeles CSS y el navegador multiplica por dpr.
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        // La primera vez, creamos un vertiki en el centro.
+        if (first) cells = [makeCell(W / 2, H * 0.35, Math.min(W, H) * 0.2)];
+      }
+
+      // =========================================================================================
+      // Paso 3 · El objeto vertiki: un anillo de puntos
+      // =========================================================================================
+
+      // Puntos del contorno de cada vertiki.
+      const POINTS = 28;
+
+      // Forma de reposo común: un círculo de radio 1. Cada vertiki la multiplica por su radio.
+      // Guardamos x e y seguidas: [x0, y0, x1, y1, …].
+      const UNIT = new Float32Array(POINTS * 2);
+      for (let i = 0; i < POINTS; i++) {
+        const a = (i / POINTS) * Math.PI * 2;
+        UNIT[i * 2] = Math.cos(a);
+        UNIT[i * 2 + 1] = Math.sin(a);
+      }
+
+      // Todos los vertikis («células») del escenario.
+      let cells = [];
+
+      function makeCell(cx, cy, r) {
+        const x = new Float32Array(POINTS);
+        const y = new Float32Array(POINTS);
+        for (let i = 0; i < POINTS; i++) {
+          x[i] = cx + UNIT[i * 2] * r;
+          y[i] = cy + UNIT[i * 2 + 1] * r;
+        }
+        return {
+          // Radio de reposo.
+          r,
+          // Posición actual de cada punto.
+          x,
+          y,
+          // Posición en el paso anterior (paso 4: Verlet).
+          px: x.slice(),
+          py: y.slice(),
+          // Centro de la forma (y, desde el paso 6, su giro).
+          cx,
+          cy,
+        };
+      }
+
+      // =========================================================================================
+      // Dibujar (pasos 3, 10, 12 y 13)
+      // =========================================================================================
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+
+        for (const c of cells) {
+          // Un gris neutro, hasta que lleguen los colores en el paso 10.
+          ctx.fillStyle = '#cfcfcf';
+          // Paso 3 · Contorno suave: curvas que pasan por los puntos medios del anillo.
+          ctx.beginPath();
+          const mx = (c.x[POINTS - 1] + c.x[0]) / 2;
+          const my = (c.y[POINTS - 1] + c.y[0]) / 2;
+          ctx.moveTo(mx, my);
+          for (let i = 0; i < POINTS; i++) {
+            const j = (i + 1) % POINTS;
+            ctx.quadraticCurveTo(c.x[i], c.y[i], (c.x[i] + c.x[j]) / 2, (c.y[i] + c.y[j]) / 2);
+          }
+          ctx.fill();
+          // Para verlo: los 28 puntos del anillo.
+          ctx.fillStyle = '#000';
+          for (let i = 0; i < POINTS; i++) {
+            ctx.beginPath();
+            ctx.arc(c.x[i], c.y[i], 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      // =========================================================================================
+      // Paso 2 · El bucle: unas 60 veces por segundo, calcular y dibujar
+      // =========================================================================================
+
+      function frame() {
+        draw();
+        requestAnimationFrame(frame);
+      }
+
+      // =========================================================================================
+      // ¡Arrancamos!
+      // =========================================================================================
+
+      window.addEventListener('resize', resize);
+      resize();
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>
