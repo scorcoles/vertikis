@@ -105,6 +105,9 @@ function makeCell(cx, cy, r) {
     // Paso 14 · al nacer
     target: undefined, // radio al que crece una recién creada
     youngUntil: undefined, // hasta cuándo no se puede reventar
+    // Paso 15 · al lanzarlo
+    thrownUntil: undefined, // hasta cuándo suena al chocar con otros
+    touching: undefined, // con qué vertikis se tocaba ya (para sonar solo al empezar a tocar)
   };
 }
 
@@ -457,6 +460,22 @@ function frame() {
     c.prevCx = c.cx;
     c.prevCy = c.cy;
 
+    // Paso 15 · Lanzado: un «toc» suave cada vez que empieza a tocar a otro (ver «bump»).
+    if (c.thrownUntil !== undefined) {
+      if (now > c.thrownUntil) {
+        c.thrownUntil = undefined;
+        c.touching = undefined;
+      } else {
+        const touching = new Set();
+        for (const k of cells) {
+          if (k === c || Math.hypot(k.cx - c.cx, k.cy - c.cy) > (c.r + k.r) * 0.92) continue;
+          touching.add(k);
+          if (!c.touching.has(k)) bump(Math.hypot(c.vx - k.vx, c.vy - k.vy), Math.min(c.r, k.r));
+        }
+        c.touching = touching;
+      }
+    }
+
     // Paso 14 · Los recién creados crecen rápido hasta su tamaño.
     if (c.target !== undefined) {
       c.r += (c.target - c.r) * 0.2;
@@ -553,6 +572,17 @@ function popSound(size) {
 
 // Crear: «bloop» que sube, como una burbuja que nace (más grave cuanto más grande).
 const createSound = (size) => tone(220 - Math.min(100, size / 2), 720 - Math.min(300, size), 0.14, 0.18);
+
+// Choque de un lanzado contra otro: «toc» grave y muy suave, más fuerte cuanto más rápido
+// llega y más grave cuanto más grande es el pequeño de los dos.
+let lastBump = 0;
+function bump(speed, size) {
+  const now = performance.now();
+  if (speed < 2 || now - lastBump < 60) return;
+  lastBump = now;
+  const f = Math.max(90, Math.min(260, 16000 / size));
+  tone(f, f * 0.6, 0.09, Math.min(0.04, speed * 0.003));
+}
 
 // =========================================================================================
 // Paso 13 · Reventar
@@ -679,6 +709,12 @@ canvas.addEventListener('pointerleave', () => {
 });
 
 function release() {
+  // Si sale lanzado con fuerza, sus choques suenan durante 1,5 s (paso 15).
+  if (grabbed && Math.hypot(grabbed.vx, grabbed.vy) > 3) {
+    const g = grabbed;
+    g.thrownUntil = performance.now() + 1500;
+    g.touching = new Set(cells.filter((k) => k !== g && Math.hypot(k.cx - g.cx, k.cy - g.cy) <= (k.r + g.r) * 0.92));
+  }
   grabbed = null;
   canvas.classList.remove('is-dragging');
 }

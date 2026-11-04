@@ -821,10 +821,32 @@ function tone(from, to, dur, vol, type = 'sine') {
 
 ¿Por qué `0.0001` y no `0`? Las rampas «exponenciales» (que suenan más naturales al oído) no pueden empezar ni acabar en cero exacto. Es una manía de la API.
 
-Con esta única función hacemos dos sonidos:
+Con esta única función hacemos varios sonidos:
 
 - **Nacer** («bloop»): un tono que sube, más grave cuanto más grande es el vertiki.
 - **Crecer**: al tocar un recién nacido (paso 14), un «bloop» más corto que sube un poco más agudo cuanto más grande se hace.
+
+### Chocar: escuchar solo lo que importa
+
+Cuando lanzas un vertiki contra los demás, suena un «toc» grave y muy suave en cada choque. Lo difícil no es el sonido (es otro `tone` que baja, muy bajito), sino **decidir cuándo sonar**. Si sonase cada vez que dos vertikis se tocan, el montón entero sería un zumbido constante, porque en reposo están todos apretados.
+
+Así que solo escuchamos al que **has lanzado**, y solo durante 1,5 segundos:
+
+1. Al soltarlo, si iba rápido (más de 3 píxeles por fotograma), le apuntamos `thrownUntil` = ahora + 1500 ms, y la lista de vertikis que ya estaba tocando.
+2. En cada fotograma miramos a quién toca ahora. Si toca a uno que **antes no tocaba**, es un choque nuevo: suena.
+3. El volumen depende de la **velocidad con la que se acercan** los dos: un roce casi no se oye y un buen golpe, algo más (pero nunca mucho).
+
+```js
+const touching = new Set();
+for (const k of cells) {
+  if (k === c || Math.hypot(k.cx - c.cx, k.cy - c.cy) > (c.r + k.r) * 0.92) continue; // no se tocan
+  touching.add(k);
+  if (!c.touching.has(k)) bump(Math.hypot(c.vx - k.vx, c.vy - k.vy), Math.min(c.r, k.r)); // ¡nuevo!
+}
+c.touching = touching;
+```
+
+Un `Set` es como un array en el que cada cosa está una sola vez y en el que preguntar «¿está este?» (`has`) es muy rápido.
 
 ### Reventar: ruido
 
