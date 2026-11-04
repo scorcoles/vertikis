@@ -571,7 +571,7 @@ function popSound(size) {
 }
 
 // Crear: «bloop» que sube, como una burbuja que nace (más grave cuanto más grande).
-const createSound = (size) => tone(220 - Math.min(100, size / 2), 720 - Math.min(300, size), 0.14, 0.18);
+const createSound = (size) => tone(220 - Math.min(100, size / 2), 720 - Math.min(300, size), 0.14, 0.24);
 
 // Choque de un lanzado contra otro: «toc» grave y muy suave, más fuerte cuanto más rápido
 // llega y más grave cuanto más grande es el pequeño de los dos.
@@ -581,7 +581,7 @@ function bump(speed, size) {
   if (speed < 2 || now - lastBump < 60) return;
   lastBump = now;
   const f = Math.max(90, Math.min(260, 16000 / size));
-  tone(f, f * 0.6, 0.09, Math.min(0.06, speed * 0.0045));
+  tone(f, f * 0.6, 0.09, Math.min(0.08, speed * 0.006));
 }
 
 // =========================================================================================
