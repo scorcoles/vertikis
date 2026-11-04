@@ -1,8 +1,8 @@
 //es Vertikis: criaturas blandas de colores, con cara, que caen, se empujan y se deforman al
-//es chocar, y que se pueden arrastrar, reventar y crear. Un experimento de VERTIK.
+//es chocar, y que se pueden arrastrar, inflar hasta que exploten y crear. Un experimento de VERTIK.
 //es Homenaje a la home de yugop.com (Yugo Nakamura, 2005).
 //en Vertikis: soft, colourful creatures with faces that fall, push each other and squash
-//en when they collide, and that you can drag, pop and create. An experiment by VERTIK.
+//en when they collide, and that you can drag, inflate until they burst, and create. An experiment by VERTIK.
 //en A tribute to the yugop.com home page (Yugo Nakamura, 2005).
 //es@16
 //es@16 Este archivo se genera con «node tools/build.mjs» a partir de src/vertikis.js.
@@ -182,11 +182,14 @@ function makeCell(cx, cy, r) {
     prevCx: cx,
     prevCy: cy,
     //<<
-    //>> 14
-    //es Paso 14 · Al nacer: el radio al que crece y hasta cuándo no se puede reventar.
-    //en Step 14 · At birth: the radius it grows to and until when it can't be popped.
+    //>> 13
+    //es Paso 13 · Inflarse: el radio al que crece, su radio de siempre (al que vuelve
+    //es desinflándose) y cuándo lo inflaron por última vez.
+    //en Step 13 · Inflating: the radius it grows to, its usual radius (which it shrinks back
+    //en to) and when it was last inflated.
     target: undefined,
-    youngUntil: undefined,
+    rest: r,
+    inflatedAt: 0,
     //<<
     //>> 15
     //es Paso 15 · Al lanzarlo: hasta cuándo suena al chocar, y con quién se tocaba ya.
@@ -476,8 +479,8 @@ function step() {
 //en =========================================================================================
 
 //>> 13
-//es Paso 13 · Gotas de los globos reventados y ondas que se abren.
-//en Step 13 · Droplets from popped balloons and rings that spread out.
+//es Paso 13 · Gotas de los globos que explotan y ondas que se abren.
+//en Step 13 · Droplets from burst balloons and rings that spread out.
 let drops = [];
 let rings = [];
 //<<
@@ -607,8 +610,8 @@ function draw() {
   //<<
 
   //>> 13
-  //es Paso 13 · Gotas y ondas de los globos reventados.
-  //en Step 13 · Droplets and rings from popped balloons.
+  //es Paso 13 · Gotas y ondas de los globos que explotan.
+  //en Step 13 · Droplets and rings from burst balloons.
   for (const d of drops) {
     ctx.fillStyle = d.color;
     ctx.beginPath();
@@ -680,12 +683,17 @@ function frame() {
     c.prevCx = c.cx;
     c.prevCy = c.cy;
 
-    //>> 14
-    //es Paso 14 · Los recién creados crecen rápido hasta su tamaño.
-    //en Step 14 · Newborns grow quickly to their full size.
+    //>> 13
+    //es Paso 13 · Al inflarlo (y, desde el paso 14, al nacer) crece rápido hasta su objetivo.
+    //es Si nadie lo toca en 1,2 s, se va desinflando despacio hasta su tamaño de siempre.
+    //en Step 13 · When inflated (and, from step 14, when born) it quickly grows to its target.
+    //en If nobody touches it for 1.2 s, it slowly deflates back to its usual size.
     if (c.target !== undefined) {
       c.r += (c.target - c.r) * 0.2;
       if (Math.abs(c.target - c.r) < 0.5) c.target = undefined;
+    } else if (c.r > c.rest && now - c.inflatedAt > 1200) {
+      c.r += (c.rest - c.r) * 0.003;
+      if (c.r - c.rest < 0.3) c.r = c.rest;
     }
     //<<
 
@@ -782,8 +790,8 @@ function tone(from, to, dur, vol, type = 'sine') {
   } catch {}
 }
 
-//es Reventar: golpe de ruido que se apaga hacia grave, como un globo, más un «thump».
-//en Popping: a burst of noise that fades towards the low end, like a balloon, plus a «thump».
+//es Explotar: golpe de ruido que se apaga hacia grave, como un globo, más un «thump».
+//en Bursting: a burst of noise that fades towards the low end, like a balloon, plus a «thump».
 function popSound(size) {
   try {
     const a = ac();
@@ -809,8 +817,8 @@ function popSound(size) {
     src.connect(filter).connect(gain).connect(master);
     src.start(t);
     src.stop(t + 0.1);
-    //es Los globos grandes revientan más graves.
-    //en Big balloons pop lower.
+    //es Los globos grandes explotan más graves.
+    //en Big balloons burst lower.
     tone(160 - Math.min(80, size / 3), 50, 0.12, 0.19);
   } catch {}
 }
@@ -835,10 +843,10 @@ function bump(speed, size) {
 
 //>> 13
 //es =========================================================================================
-//es Paso 13 · Reventar
+//es Paso 13 · Inflar y explotar
 //es =========================================================================================
 //en =========================================================================================
-//en Step 13 · Popping
+//en Step 13 · Inflating and bursting
 //en =========================================================================================
 
 function pop(c) {
@@ -868,6 +876,21 @@ function pop(c) {
   }
   popSound(c.r); // @15
 }
+
+//es Tocar un vertiki lo infla un 15 %; si pasa de cierto tamaño (un 34 % del lado corto de
+//es la pantalla), explota. Es la única manera de que exploten.
+//en Tapping a vertiki inflates it by 15 %; past a certain size (34 % of the short side of
+//en the screen), it pops. It's the only way to pop them.
+function inflate(c) {
+  const next = (c.target ?? c.r) * 1.15;
+  if (next > Math.min(W, H) * 0.34) {
+    pop(c);
+    return;
+  }
+  c.target = next;
+  c.inflatedAt = performance.now();
+  tone(300 - Math.min(120, next / 3), 900 - Math.min(400, next), 0.1, 0.14); // @15
+}
 //<<
 
 //>> 14
@@ -878,42 +901,24 @@ function pop(c) {
 //en Step 14 · Being born
 //en =========================================================================================
 
-//es Un vertiki nuevo de tamaño al azar, que nace pequeño y crece hasta su tamaño. Durante sus
-//es primeros 2 s no se puede reventar: cada toque lo hace crecer (ver «feed»).
-//en A new vertiki of random size, born small and growing to full size. During its first 2 s
-//en it can't be popped: every tap makes it grow (see «feed»).
-const YOUTH = 2000;
+//es Un vertiki nuevo de tamaño al azar, que nace pequeño y crece hasta su tamaño.
+//en A new vertiki of random size, born small and growing to full size.
 function spawn(x, y) {
   const target = Math.min(W, H) * (0.07 + Math.random() * 0.14);
   const c = makeCell(x, y, target * 0.15);
   c.target = target;
-  c.youngUntil = performance.now() + YOUTH;
+  c.rest = target;
   cells.push(c);
   createSound(target); // @15
-}
-
-//es Tocar un recién nacido lo hace crecer un 15 % y le da otros 2 s; si pasa de cierto
-//es tamaño, explota (así no se llena la pantalla de vertikis gigantes).
-//en Tapping a newborn makes it grow 15 % and gives it another 2 s; past a certain size it
-//en bursts (so the screen doesn't fill up with giant vertikis).
-function feed(c) {
-  const next = (c.target ?? c.r) * 1.15;
-  if (next > Math.min(W, H) * 0.34) {
-    pop(c);
-    return;
-  }
-  c.target = next;
-  c.youngUntil = performance.now() + YOUTH;
-  tone(300 - Math.min(120, next / 3), 900 - Math.min(400, next), 0.1, 0.14); // @15
 }
 //<<
 
 //>> 11
 //es =========================================================================================
-//es Paso 11 · El puntero: arrastrar y hover (y, desde el paso 13, doble clic)
+//es Paso 11 · El puntero: arrastrar y hover (y, desde el paso 13, tocar para inflar)
 //es =========================================================================================
 //en =========================================================================================
-//en Step 11 · The pointer: dragging and hover (and, from step 13, double-click)
+//en Step 11 · The pointer: dragging and hover (and, from step 13, tapping to inflate)
 //en =========================================================================================
 
 //es El vertiki bajo el puntero (el de encima si se solapan: el último dibujado).
@@ -927,10 +932,17 @@ function cellAt(x, y) {
 }
 
 //>> 13
-//es Paso 13 · Doble clic o doble toque, detectado a mano para que funcione igual con ratón
-//es y en táctil: dos pulsaciones en menos de 320 ms y a menos de 30 px.
-//en Step 13 · Double-click or double-tap, detected by hand so it works the same with a mouse
-//en and on touch screens: two presses less than 320 ms and 30 px apart.
+//es Paso 13 · Un toque: pulsar y soltar enseguida (menos de 250 ms) sin mover el dedo (menos
+//es de 10 px). Arrastrar no cuenta. Aquí apuntamos cuándo y dónde se pulsó, y sobre quién.
+//en Step 13 · A tap: press and release quickly (under 250 ms) without moving your finger
+//en (under 10 px). Dragging doesn't count. Here we note when and where you pressed, and on whom.
+let press = null;
+//<<
+//>> 14
+//es Paso 14 · Doble clic o doble toque en un hueco, detectado a mano para que funcione igual
+//es con ratón y en táctil: dos pulsaciones en menos de 320 ms y a menos de 30 px.
+//en Step 14 · Double-click or double-tap on an empty spot, detected by hand so it works the
+//en same with a mouse and on touch screens: two presses less than 320 ms and 30 px apart.
 let lastDown = { t: 0, x: 0, y: 0 };
 //<<
 
@@ -948,40 +960,20 @@ canvas.addEventListener('pointerdown', (e) => {
   }
   //<<
   pointer = { x: e.clientX, y: e.clientY };
-  //>> 13
+  //>> 14
+  //es Paso 14 · Doble clic en un hueco: nace un vertiki.
+  //en Step 14 · Double-click on an empty spot: a vertiki is born.
   const now = performance.now();
   const double = now - lastDown.t < 320 && Math.hypot(e.clientX - lastDown.x, e.clientY - lastDown.y) < 30;
   lastDown = double ? { t: 0, x: 0, y: 0 } : { t: now, x: e.clientX, y: e.clientY };
-  //<<
-  //>> 13-13
-  //es Paso 13 · Doble clic sobre un vertiki: lo revienta.
-  //en Step 13 · Double-click on a vertiki: pops it.
-  if (double) {
-    const hit = cellAt(e.clientX, e.clientY);
-    if (hit) {
-      pop(hit);
-      return;
-    }
-  }
-  //<<
-  //>> 14
-  const hit = cellAt(e.clientX, e.clientY);
-  if (hit && hit.youngUntil !== undefined && now < hit.youngUntil) {
-    //es Paso 14 · Un recién nacido no revienta: cada toque (simple o doble) lo hace crecer.
-    //en Step 14 · A newborn doesn't pop: every tap (single or double) makes it grow.
-    feed(hit);
-    lastDown = { t: 0, x: 0, y: 0 };
-    if (!cells.includes(hit)) return;
-  } else if (double) {
-    //es Doble clic: sobre un vertiki lo revienta; en un hueco crea uno nuevo.
-    //en Double-click: on a vertiki, pops it; on an empty spot, creates a new one.
-    if (hit) pop(hit);
-    else spawn(e.clientX, e.clientY);
+  if (double && !cellAt(e.clientX, e.clientY)) {
+    spawn(e.clientX, e.clientY);
     return;
   }
   //<<
 
   grabbed = cellAt(e.clientX, e.clientY);
+  press = grabbed && { cell: grabbed, t: performance.now(), x: e.clientX, y: e.clientY }; // @13
   if (!grabbed) return;
   grabOffset = { x: e.clientX - grabbed.cx, y: e.clientY - grabbed.cy };
   //es El agarrado pasa a dibujarse encima de los demás.
@@ -1004,7 +996,14 @@ canvas.addEventListener('pointerleave', () => {
   hovered = null;
 });
 
-function release() {
+function release(e) {
+  //>> 13
+  //es Paso 13 · Si ha sido un toque (corto y sin moverse), se infla.
+  //en Step 13 · If it was a tap (short and without moving), it inflates.
+  const tap = press && e && performance.now() - press.t < 250 && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 10;
+  if (tap && cells.includes(press.cell)) inflate(press.cell);
+  press = null;
+  //<<
   //>> 15
   //es Paso 15 · Si sale lanzado con fuerza, sus choques suenan durante 1,5 s.
   //en Step 15 · If it's thrown hard enough, its impacts make a sound for 1.5 s.
@@ -1018,7 +1017,7 @@ function release() {
   canvas.classList.remove('is-dragging');
 }
 canvas.addEventListener('pointerup', release);
-canvas.addEventListener('pointercancel', release);
+canvas.addEventListener('pointercancel', () => release());
 
 //es Qué hay bajo el ratón, en cada fotograma (los vertikis se mueven aunque el ratón esté
 //es quieto): para el cursor (mano encima) y, desde el paso 12, la sonrisa.

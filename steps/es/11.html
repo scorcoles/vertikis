@@ -29,7 +29,7 @@
     </p>
     <script>
       // Vertikis: criaturas blandas de colores, con cara, que caen, se empujan y se deforman al
-      // chocar, y que se pueden arrastrar, reventar y crear. Un experimento de VERTIK.
+      // chocar, y que se pueden arrastrar, inflar hasta que exploten y crear. Un experimento de VERTIK.
       // Homenaje a la home de yugop.com (Yugo Nakamura, 2005).
 
       // =========================================================================================
@@ -364,7 +364,7 @@
       }
 
       // =========================================================================================
-      // Paso 11 · El puntero: arrastrar y hover (y, desde el paso 13, doble clic)
+      // Paso 11 · El puntero: arrastrar y hover (y, desde el paso 13, tocar para inflar)
       // =========================================================================================
 
       // El vertiki bajo el puntero (el de encima si se solapan: el último dibujado).
@@ -399,12 +399,12 @@
         hovered = null;
       });
 
-      function release() {
+      function release(e) {
         grabbed = null;
         canvas.classList.remove('is-dragging');
       }
       canvas.addEventListener('pointerup', release);
-      canvas.addEventListener('pointercancel', release);
+      canvas.addEventListener('pointercancel', () => release());
 
       // Qué hay bajo el ratón, en cada fotograma (los vertikis se mueven aunque el ratón esté
       // quieto): para el cursor (mano encima) y, desde el paso 12, la sonrisa.

@@ -2,13 +2,13 @@
 
 **Español** · [English](README.en.md)
 
-Criaturas blandas de colores, con cara, que caen, se empujan, se aplastan al chocar y se pueden arrastrar, reventar y crear. Todo con un `<canvas>`, JavaScript normal y sin librerías.
+Criaturas blandas de colores, con cara, que caen, se empujan, se aplastan al chocar y se pueden arrastrar, inflar hasta que exploten y crear. Todo con un `<canvas>`, JavaScript normal y sin librerías.
 
 **Demo:** [scorcoles.github.io/vertikis](https://scorcoles.github.io/vertikis/) · también en [vertik.net/vertikis](https://www.vertik.net/vertikis/)
 
 - **Arrastra** un vertiki para moverlo y lanzarlo.
-- **Doble clic** (o doble toque) sobre un vertiki: revienta.
-- **Doble clic en un hueco**: nace uno nuevo. Durante 2 segundos no se puede reventar; si lo tocas, crece un 15 %… y si crece demasiado, explota.
+- **Toca** un vertiki: se infla un 15 %. Si se pasa de tamaño, **explota**. Si lo dejas tranquilo, se desinfla poco a poco.
+- **Doble clic en un hueco** (o doble toque): nace uno nuevo.
 - **En el móvil**, inclina el teléfono: la gravedad sigue la inclinación.
 
 Un experimento de [VERTIK](https://www.vertik.net). Homenaje a la home de yugop.com (Yugo Nakamura, 2005).
@@ -64,8 +64,8 @@ Un consejo antes de empezar: no hace falta entender todas las matemáticas. Casi
 10. [Color y un poco de luz](#paso-10)
 11. [El puntero: arrastrar y lanzar](#paso-11)
 12. [La cara](#paso-12)
-13. [Reventar](#paso-13)
-14. [Nacer y crecer](#paso-14)
+13. [Inflar y explotar](#paso-13)
+14. [Nacer](#paso-14)
 15. [El sonido, sin archivos de audio](#paso-15)
 16. [El móvil: inclinar el teléfono](#paso-16)
 17. [Ideas para seguir jugando](#paso-17)
@@ -729,7 +729,7 @@ Se pasa un poquito y vuelve: un mini rebote de ~0,3 s. Es un detalle pequeño qu
 
 ### Reacciones
 
-- **Susto («o»)**: cuando revientas un vertiki (lo verás en el paso 13), sus vecinos ponen boca de «o» y abren los ojos durante 0,7 s.
+- **Susto («o»)**: cuando un vertiki explota (lo verás en el paso 13), sus vecinos ponen boca de «o» y abren los ojos durante 0,7 s.
 - **Ojos apretados «> <»**: si un vertiki cambia de velocidad de golpe (un choque fuerte), aprieta los ojos 0,3 s. Lo detectamos comparando cuánto se movió su centro en este fotograma y en el anterior.
 
 Las dos funcionan igual: guardamos «hasta cuándo» (`surprisedUntil`, `squintUntil`) y al dibujar miramos si todavía no ha llegado esa hora.
@@ -738,30 +738,66 @@ Las dos funcionan igual: guardamos «hasta cuándo» (`surprisedUntil`, `squintU
 
 <a id="paso-13"></a>
 
-## Paso 13 · Reventar
+## Paso 13 · Inflar y explotar
 
 ▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/13.html) · [código](steps/es/13.html)
 
 ### Qué queremos
 
-Que reviente como un globo: «¡pop!», unas gotas que salen volando y una onda.
+Una sola regla, que un niño entienda sin que se la expliquen: **cada toque infla un vertiki, y si se pasa de tamaño, explota** como un globo, con unas gotas que salen volando y una onda. Si lo dejas tranquilo, se desinfla poco a poco. Es la única manera de que exploten.
 
-### Doble clic hecho a mano
+### Un toque no es un arrastre
 
-El navegador tiene un evento `dblclick`, pero en el móvil no es fiable. Así que lo detectamos nosotros: si una pulsación llega **menos de 320 ms** después de la anterior y **a menos de 30 px**, es un doble clic.
+Pulsar sobre un vertiki ya servía para agarrarlo (paso 11). Si cada pulsación lo inflase, se inflaría también cada vez que lo arrastras. Así que solo cuenta como **toque** pulsar y soltar enseguida (menos de 250 ms) **sin mover el dedo** (menos de 10 px).
+
+Al pulsar apuntamos cuándo, dónde y sobre quién (`press`). Al soltar comprobamos si fue un toque:
 
 ```js
-const double = now - lastDown.t < 320 && Math.hypot(e.clientX - lastDown.x, e.clientY - lastDown.y) < 30;
+const tap = press && e && performance.now() - press.t < 250 && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 10;
+if (tap && cells.includes(press.cell)) inflate(press.cell);
 ```
 
-Si hay un vertiki debajo, revienta. En un hueco, de momento, no pasa nada: ahí nacerán en el paso 14.
+### Inflar
 
-### La idea
+Cada vertiki recuerda su tamaño de siempre (`rest`). Inflarlo es ponerle un objetivo un 15 % más grande (`target`). Si ese objetivo pasa de un 34 % del lado corto de la pantalla, explota:
+
+```js
+function inflate(c) {
+  const next = (c.target ?? c.r) * 1.15;
+  if (next > Math.min(W, H) * 0.34) {
+    pop(c);
+    return;
+  }
+  c.target = next;
+  c.inflatedAt = performance.now();
+}
+```
+
+(`a ?? b` significa «`a`, y si no tiene valor, `b`».)
+
+`performance.now()` da los milisegundos que han pasado desde que se abrió la página. Lo usamos siempre para medir tiempos.
+
+En cada fotograma, el radio se acerca al objetivo con el patrón de suavizado del paso 12. Y si nadie lo ha tocado en 1,2 segundos, se va acercando a su tamaño de siempre, pero **muy despacio**:
+
+```js
+if (c.target !== undefined) {
+  c.r += (c.target - c.r) * 0.2;                    // crecer: rápido
+  if (Math.abs(c.target - c.r) < 0.5) c.target = undefined;
+} else if (c.r > c.rest && now - c.inflatedAt > 1200) {
+  c.r += (c.rest - c.r) * 0.003;                    // desinflarse: muy despacio
+}
+```
+
+Como el radio es lo que usa la forma de reposo (paso 6), al inflarse los puntos empujan hacia fuera y el vertiki **aparta a sus vecinos**. Gratis, sin código extra.
+
+Los pequeños necesitan más toques que los grandes para explotar. Y como se desinflan, inflar uno es una pequeña carrera: si tardas, se te deshincha.
+
+### Explotar
 
 1. Quitamos el vertiki del array `cells`.
 2. Creamos unas cuantas **gotas** (más cuanto más grande era) en su borde, con una velocidad hacia fuera y un poco hacia arriba.
 3. Creamos una **onda**: un círculo que se agranda y se desvanece.
-4. Asustamos a los vecinos (paso 12) y hacemos sonar el pop (paso 15).
+4. Asustamos a los vecinos (paso 12) y hacemos sonar la explosión (paso 15).
 
 Las gotas son lo más sencillo de todo el proyecto: posición, velocidad, gravedad y una «vida» que baja de 1 a 0. Al dibujarlas, su tamaño es `radio * vida`, así que se encogen hasta desaparecer:
 
@@ -782,47 +818,40 @@ La onda es igual: un valor `t` de 0 a 1. El radio crece con `t` y la opacidad (`
 
 <a id="paso-14"></a>
 
-## Paso 14 · Nacer y crecer
+## Paso 14 · Nacer
 
 ▶ **Este paso funcionando:** [demo](https://scorcoles.github.io/vertikis/steps/es/14.html) · [código](steps/es/14.html)
 
 ### Qué queremos
 
-Que un vertiki nuevo no aparezca de golpe, sino que **nazca pequeño y se infle**. Y, de paso, darle un poco de vida al juego.
+Poder crear vertikis nuevos con un doble clic en un hueco, y que no aparezcan de golpe, sino que **nazcan pequeños y se inflen**.
 
-### Crecer
+### Doble clic hecho a mano
 
-Un doble clic en un hueco (lo que dejamos pendiente en el paso 13) llama a `spawn()`, que crea un vertiki con un radio de solo el 15 % del que tendrá, y le apunta su tamaño final en `target`. En cada fotograma, el radio se acerca al objetivo con el patrón de suavizado del paso 12:
+El navegador tiene un evento `dblclick`, pero en el móvil no es fiable. Así que lo detectamos nosotros: si una pulsación llega **menos de 320 ms** después de la anterior y **a menos de 30 px**, es un doble clic.
 
 ```js
-c.r += (c.target - c.r) * 0.2;
+const double = now - lastDown.t < 320 && Math.hypot(e.clientX - lastDown.x, e.clientY - lastDown.y) < 30;
+if (double && !cellAt(e.clientX, e.clientY)) spawn(e.clientX, e.clientY);
 ```
 
-Como el radio es lo que usa la forma de reposo (paso 6), los puntos van empujando hacia fuera y el vertiki **se infla empujando a sus vecinos**. Gratis, sin código extra.
+Solo cuenta en un hueco. Sobre un vertiki, dos toques rápidos son simplemente dos toques: lo inflan dos veces.
 
-### Los primeros 2 segundos
+### Nacer pequeño
 
-Un recién nacido es delicado… pero no tanto:
-
-- Durante **2 segundos** (`youngUntil`) no se puede reventar.
-- Si lo tocas en ese tiempo, **crece un 15 %** y el contador vuelve a empezar (`feed()`).
-- Si se pasa de cierto tamaño (un 34 % del lado corto de la pantalla), **explota**. Así no se llena la pantalla de gigantes.
+`spawn()` crea un vertiki con un radio de solo el 15 % del que tendrá, y le pone ese tamaño final como objetivo (`target`) y como tamaño de siempre (`rest`):
 
 ```js
-function feed(c) {
-  const next = (c.target ?? c.r) * 1.15;
-  if (next > Math.min(W, H) * 0.34) {
-    pop(c);
-    return;
-  }
-  c.target = next;
-  c.youngUntil = performance.now() + 2000;
+function spawn(x, y) {
+  const target = Math.min(W, H) * (0.07 + Math.random() * 0.14);
+  const c = makeCell(x, y, target * 0.15);
+  c.target = target;
+  c.rest = target;
+  cells.push(c);
 }
 ```
 
-(`a ?? b` significa «`a`, y si no tiene valor, `b`».)
-
-`performance.now()` da los milisegundos que han pasado desde que se abrió la página. Lo usamos siempre para medir tiempos: «hasta cuándo» es «ahora + 2000».
+No hace falta nada más: el mismo código que infla (paso 13) lo hace crecer hasta su tamaño, empujando a los vecinos. Y desde que nace, se puede inflar hasta que explote como cualquier otro.
 
 ---
 
@@ -895,7 +924,7 @@ function tone(from, to, dur, vol, type = 'sine') {
 Con esta única función hacemos varios sonidos:
 
 - **Nacer** («bloop»): un tono que sube, más grave cuanto más grande es el vertiki.
-- **Crecer**: al tocar un recién nacido (paso 14), un «bloop» más corto que sube un poco más agudo cuanto más grande se hace.
+- **Inflar**: cada toque (paso 13), un «bloop» más corto que sube un poco más agudo cuanto más grande se hace el vertiki. Así se oye que se acerca al límite.
 
 ### Chocar: escuchar solo lo que importa
 
@@ -919,9 +948,9 @@ c.touching = touching;
 
 Un `Set` es como un array en el que cada cosa está una sola vez y en el que preguntar «¿está este?» (`has`) es muy rápido.
 
-### Reventar: ruido
+### Explotar: ruido
 
-Un globo que revienta no es un tono: es **ruido**, como el «shhh» de una radio mal sintonizada. Lo fabricamos llenando 0,1 segundos de audio con números al azar:
+Un globo que explota no es un tono: es **ruido**, como el «shhh» de una radio mal sintonizada. Lo fabricamos llenando 0,1 segundos de audio con números al azar:
 
 ```js
 const len = Math.ceil(a.sampleRate * 0.1);      // cuántas muestras son 0,1 s

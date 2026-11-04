@@ -30,7 +30,7 @@
     </p>
     <script>
       // Vertikis: soft, colourful creatures with faces that fall, push each other and squash
-      // when they collide, and that you can drag, pop and create. An experiment by VERTIK.
+      // when they collide, and that you can drag, inflate until they burst, and create. An experiment by VERTIK.
       // A tribute to the yugop.com home page (Yugo Nakamura, 2005).
 
       // =========================================================================================
@@ -139,9 +139,11 @@
           vy: 0,
           prevCx: cx,
           prevCy: cy,
-          // Step 14 · At birth: the radius it grows to and until when it can't be popped.
+          // Step 13 · Inflating: the radius it grows to, its usual radius (which it shrinks back
+          // to) and when it was last inflated.
           target: undefined,
-          youngUntil: undefined,
+          rest: r,
+          inflatedAt: 0,
           // Step 15 · When thrown: until when it sounds on impact, and who it was already touching.
           thrownUntil: undefined,
           touching: undefined,
@@ -349,7 +351,7 @@
       // Drawing (steps 3, 10, 12 and 13)
       // =========================================================================================
 
-      // Step 13 · Droplets from popped balloons and rings that spread out.
+      // Step 13 · Droplets from burst balloons and rings that spread out.
       let drops = [];
       let rings = [];
       // Step 12 · Ink for the faces.
@@ -444,7 +446,7 @@
           ctx.restore();
         }
 
-        // Step 13 · Droplets and rings from popped balloons.
+        // Step 13 · Droplets and rings from burst balloons.
         for (const d of drops) {
           ctx.fillStyle = d.color;
           ctx.beginPath();
@@ -504,10 +506,14 @@
           c.prevCx = c.cx;
           c.prevCy = c.cy;
 
-          // Step 14 · Newborns grow quickly to their full size.
+          // Step 13 · When inflated (and, from step 14, when born) it quickly grows to its target.
+          // If nobody touches it for 1.2 s, it slowly deflates back to its usual size.
           if (c.target !== undefined) {
             c.r += (c.target - c.r) * 0.2;
             if (Math.abs(c.target - c.r) < 0.5) c.target = undefined;
+          } else if (c.r > c.rest && now - c.inflatedAt > 1200) {
+            c.r += (c.rest - c.r) * 0.003;
+            if (c.r - c.rest < 0.3) c.r = c.rest;
           }
 
           // Step 15 · Thrown: a soft «tock» every time it starts touching another one (see «bump»).
@@ -586,7 +592,7 @@
         } catch {}
       }
 
-      // Popping: a burst of noise that fades towards the low end, like a balloon, plus a «thump».
+      // Bursting: a burst of noise that fades towards the low end, like a balloon, plus a «thump».
       function popSound(size) {
         try {
           const a = ac();
@@ -610,7 +616,7 @@
           src.connect(filter).connect(gain).connect(master);
           src.start(t);
           src.stop(t + 0.1);
-          // Big balloons pop lower.
+          // Big balloons burst lower.
           tone(160 - Math.min(80, size / 3), 50, 0.12, 0.19);
         } catch {}
       }
@@ -630,7 +636,7 @@
       }
 
       // =========================================================================================
-      // Step 13 · Popping
+      // Step 13 · Inflating and bursting
       // =========================================================================================
 
       function pop(c) {
@@ -660,37 +666,35 @@
         popSound(c.r);
       }
 
-      // =========================================================================================
-      // Step 14 · Being born
-      // =========================================================================================
-
-      // A new vertiki of random size, born small and growing to full size. During its first 2 s
-      // it can't be popped: every tap makes it grow (see «feed»).
-      const YOUTH = 2000;
-      function spawn(x, y) {
-        const target = Math.min(W, H) * (0.07 + Math.random() * 0.14);
-        const c = makeCell(x, y, target * 0.15);
-        c.target = target;
-        c.youngUntil = performance.now() + YOUTH;
-        cells.push(c);
-        createSound(target);
-      }
-
-      // Tapping a newborn makes it grow 15 % and gives it another 2 s; past a certain size it
-      // bursts (so the screen doesn't fill up with giant vertikis).
-      function feed(c) {
+      // Tapping a vertiki inflates it by 15 %; past a certain size (34 % of the short side of
+      // the screen), it pops. It's the only way to pop them.
+      function inflate(c) {
         const next = (c.target ?? c.r) * 1.15;
         if (next > Math.min(W, H) * 0.34) {
           pop(c);
           return;
         }
         c.target = next;
-        c.youngUntil = performance.now() + YOUTH;
+        c.inflatedAt = performance.now();
         tone(300 - Math.min(120, next / 3), 900 - Math.min(400, next), 0.1, 0.14);
       }
 
       // =========================================================================================
-      // Step 11 · The pointer: dragging and hover (and, from step 13, double-click)
+      // Step 14 · Being born
+      // =========================================================================================
+
+      // A new vertiki of random size, born small and growing to full size.
+      function spawn(x, y) {
+        const target = Math.min(W, H) * (0.07 + Math.random() * 0.14);
+        const c = makeCell(x, y, target * 0.15);
+        c.target = target;
+        c.rest = target;
+        cells.push(c);
+        createSound(target);
+      }
+
+      // =========================================================================================
+      // Step 11 · The pointer: dragging and hover (and, from step 13, tapping to inflate)
       // =========================================================================================
 
       // The vertiki under the pointer (the top one if they overlap: the last one drawn).
@@ -702,8 +706,11 @@
         return null;
       }
 
-      // Step 13 · Double-click or double-tap, detected by hand so it works the same with a mouse
-      // and on touch screens: two presses less than 320 ms and 30 px apart.
+      // Step 13 · A tap: press and release quickly (under 250 ms) without moving your finger
+      // (under 10 px). Dragging doesn't count. Here we note when and where you pressed, and on whom.
+      let press = null;
+      // Step 14 · Double-click or double-tap on an empty spot, detected by hand so it works the
+      // same with a mouse and on touch screens: two presses less than 320 ms and 30 px apart.
       let lastDown = { t: 0, x: 0, y: 0 };
 
       canvas.addEventListener('pointerdown', (e) => {
@@ -714,23 +721,17 @@
           ac();
         }
         pointer = { x: e.clientX, y: e.clientY };
+        // Step 14 · Double-click on an empty spot: a vertiki is born.
         const now = performance.now();
         const double = now - lastDown.t < 320 && Math.hypot(e.clientX - lastDown.x, e.clientY - lastDown.y) < 30;
         lastDown = double ? { t: 0, x: 0, y: 0 } : { t: now, x: e.clientX, y: e.clientY };
-        const hit = cellAt(e.clientX, e.clientY);
-        if (hit && hit.youngUntil !== undefined && now < hit.youngUntil) {
-          // Step 14 · A newborn doesn't pop: every tap (single or double) makes it grow.
-          feed(hit);
-          lastDown = { t: 0, x: 0, y: 0 };
-          if (!cells.includes(hit)) return;
-        } else if (double) {
-          // Double-click: on a vertiki, pops it; on an empty spot, creates a new one.
-          if (hit) pop(hit);
-          else spawn(e.clientX, e.clientY);
+        if (double && !cellAt(e.clientX, e.clientY)) {
+          spawn(e.clientX, e.clientY);
           return;
         }
 
         grabbed = cellAt(e.clientX, e.clientY);
+        press = grabbed && { cell: grabbed, t: performance.now(), x: e.clientX, y: e.clientY };
         if (!grabbed) return;
         grabOffset = { x: e.clientX - grabbed.cx, y: e.clientY - grabbed.cy };
         // The grabbed one is now drawn on top of the others.
@@ -751,7 +752,11 @@
         hovered = null;
       });
 
-      function release() {
+      function release(e) {
+        // Step 13 · If it was a tap (short and without moving), it inflates.
+        const tap = press && e && performance.now() - press.t < 250 && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 10;
+        if (tap && cells.includes(press.cell)) inflate(press.cell);
+        press = null;
         // Step 15 · If it's thrown hard enough, its impacts make a sound for 1.5 s.
         if (grabbed && Math.hypot(grabbed.vx, grabbed.vy) > 2) {
           const g = grabbed;
@@ -762,7 +767,7 @@
         canvas.classList.remove('is-dragging');
       }
       canvas.addEventListener('pointerup', release);
-      canvas.addEventListener('pointercancel', release);
+      canvas.addEventListener('pointercancel', () => release());
 
       // What's under the mouse, every frame (vertikis move even when the mouse is still): for
       // the cursor (a hand on top) and, from step 12, the smile.

@@ -29,7 +29,7 @@
     </p>
     <script>
       // Vertikis: soft, colourful creatures with faces that fall, push each other and squash
-      // when they collide, and that you can drag, pop and create. An experiment by VERTIK.
+      // when they collide, and that you can drag, inflate until they burst, and create. An experiment by VERTIK.
       // A tribute to the yugop.com home page (Yugo Nakamura, 2005).
 
       // =========================================================================================
@@ -364,7 +364,7 @@
       }
 
       // =========================================================================================
-      // Step 11 · The pointer: dragging and hover (and, from step 13, double-click)
+      // Step 11 · The pointer: dragging and hover (and, from step 13, tapping to inflate)
       // =========================================================================================
 
       // The vertiki under the pointer (the top one if they overlap: the last one drawn).
@@ -399,12 +399,12 @@
         hovered = null;
       });
 
-      function release() {
+      function release(e) {
         grabbed = null;
         canvas.classList.remove('is-dragging');
       }
       canvas.addEventListener('pointerup', release);
-      canvas.addEventListener('pointercancel', release);
+      canvas.addEventListener('pointercancel', () => release());
 
       // What's under the mouse, every frame (vertikis move even when the mouse is still): for
       // the cursor (a hand on top) and, from step 12, the smile.

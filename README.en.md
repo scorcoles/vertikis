@@ -2,13 +2,13 @@
 
 [Español](README.md) · **English**
 
-Soft, colourful creatures with faces that fall, push each other, squash when they collide, and that you can drag, pop and create. All with a `<canvas>`, plain JavaScript and no libraries.
+Soft, colourful creatures with faces that fall, push each other, squash when they collide, and that you can drag, inflate until they burst, and create. All with a `<canvas>`, plain JavaScript and no libraries.
 
 **Demo:** [scorcoles.github.io/vertikis](https://scorcoles.github.io/vertikis/) · also at [vertik.net/vertikis](https://www.vertik.net/vertikis/)
 
 - **Drag** a vertiki to move it and throw it.
-- **Double-click** (or double-tap) a vertiki: it pops.
-- **Double-click an empty spot**: a new one is born. For 2 seconds it can't be popped; if you tap it, it grows 15 %… and if it grows too much, it bursts.
+- **Tap** a vertiki: it inflates by 15 %. If it gets too big, it **bursts**. Leave it alone and it slowly deflates.
+- **Double-click an empty spot** (or double-tap): a new one is born.
 - **On a phone**, tilt it: gravity follows the tilt.
 
 An experiment by [VERTIK](https://www.vertik.net). A tribute to the yugop.com home page (Yugo Nakamura, 2005).
@@ -64,8 +64,8 @@ A tip before we start: you don't need to understand all the maths. It's almost a
 10. [Colour and a little light](#step-10)
 11. [The pointer: dragging and throwing](#step-11)
 12. [The face](#step-12)
-13. [Popping](#step-13)
-14. [Birth and growth](#step-14)
+13. [Inflating and bursting](#step-13)
+14. [Being born](#step-14)
 15. [Sound, without audio files](#step-15)
 16. [On the phone: tilting it](#step-16)
 17. [Ideas to keep playing](#step-17)
@@ -728,7 +728,7 @@ It overshoots a little and comes back: a tiny ~0.3 s bounce. A small detail you 
 
 ### Reactions
 
-- **Fright («o»)**: when you pop a vertiki (you'll see it in step 13), its neighbours make an «o» mouth and open their eyes wide for 0.7 s.
+- **Fright («o»)**: when a vertiki bursts (you'll see it in step 13), its neighbours make an «o» mouth and open their eyes wide for 0.7 s.
 - **Squeezed eyes «> <»**: if a vertiki changes speed suddenly (a hard knock), it squeezes its eyes shut for 0.3 s. We detect it by comparing how far its centre moved in this frame and in the previous one.
 
 Both work the same way: we store «until when» (`surprisedUntil`, `squintUntil`) and when drawing we check whether that time hasn't arrived yet.
@@ -737,30 +737,66 @@ Both work the same way: we store «until when» (`surprisedUntil`, `squintUntil`
 
 <a id="step-13"></a>
 
-## Step 13 · Popping
+## Step 13 · Inflating and bursting
 
 ▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/13.html) · [code](steps/en/13.html)
 
 ### What we want
 
-For it to pop like a balloon: «pop!», some droplets flying out and a ring.
+A single rule that a child understands without being told: **every tap inflates a vertiki, and if it gets too big, it bursts** like a balloon, with some droplets flying out and a ring. Leave it alone and it slowly deflates. It's the only way they burst.
 
-### A home-made double-click
+### A tap is not a drag
 
-The browser has a `dblclick` event, but it isn't reliable on phones. So we detect it ourselves: if a press comes **less than 320 ms** after the previous one and **less than 30 px** away, it's a double-click.
+Pressing on a vertiki already grabs it (step 11). If every press inflated it, it would also inflate every time you drag it. So it only counts as a **tap** if you press and release quickly (under 250 ms) **without moving your finger** (under 10 px).
+
+When you press, we note when, where and on whom (`press`). When you release, we check whether it was a tap:
 
 ```js
-const double = now - lastDown.t < 320 && Math.hypot(e.clientX - lastDown.x, e.clientY - lastDown.y) < 30;
+const tap = press && e && performance.now() - press.t < 250 && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 10;
+if (tap && cells.includes(press.cell)) inflate(press.cell);
 ```
 
-If there's a vertiki under it, it pops. On an empty spot nothing happens yet: that's where they'll be born in step 14.
+### Inflating
 
-### The idea
+Each vertiki remembers its usual size (`rest`). Inflating it means giving it a target 15 % bigger (`target`). If that target goes past 34 % of the short side of the screen, it bursts:
+
+```js
+function inflate(c) {
+  const next = (c.target ?? c.r) * 1.15;
+  if (next > Math.min(W, H) * 0.34) {
+    pop(c);
+    return;
+  }
+  c.target = next;
+  c.inflatedAt = performance.now();
+}
+```
+
+(`a ?? b` means «`a`, or `b` if it has no value».)
+
+`performance.now()` gives the milliseconds since the page opened. We always use it to measure time.
+
+On every frame, the radius moves towards the target with the smoothing pattern from step 12. And if nobody has touched it for 1.2 seconds, it moves back towards its usual size, but **very slowly**:
+
+```js
+if (c.target !== undefined) {
+  c.r += (c.target - c.r) * 0.2;                    // growing: fast
+  if (Math.abs(c.target - c.r) < 0.5) c.target = undefined;
+} else if (c.r > c.rest && now - c.inflatedAt > 1200) {
+  c.r += (c.rest - c.r) * 0.003;                    // deflating: very slowly
+}
+```
+
+Since the radius is what the resting shape uses (step 6), when it inflates the points push outwards and the vertiki **shoves its neighbours aside**. For free, without extra code.
+
+Small ones need more taps than big ones to burst. And since they deflate, inflating one is a little race: take too long and it goes down on you.
+
+### Bursting
 
 1. We remove the vertiki from the `cells` array.
 2. We create a few **droplets** (more the bigger it was) around its edge, with a velocity outwards and a little upwards.
 3. We create a **ring**: a circle that grows and fades.
-4. We startle the neighbours (step 12) and play the pop (step 15).
+4. We startle the neighbours (step 12) and play the burst (step 15).
 
 The droplets are the simplest thing in the whole project: position, velocity, gravity and a «life» that goes from 1 down to 0. When we draw them, their size is `radius * life`, so they shrink until they disappear:
 
@@ -781,47 +817,40 @@ The ring is the same: a value `t` from 0 to 1. The radius grows with `t`, and th
 
 <a id="step-14"></a>
 
-## Step 14 · Birth and growth
+## Step 14 · Being born
 
 ▶ **This step, working:** [demo](https://scorcoles.github.io/vertikis/steps/en/14.html) · [code](steps/en/14.html)
 
 ### What we want
 
-For a new vertiki not to appear all at once, but to **be born small and inflate**. And, while we're at it, to make the game a bit livelier.
+To create new vertikis with a double-click on an empty spot, and for them not to appear all at once, but to **be born small and inflate**.
 
-### Growing
+### A home-made double-click
 
-A double-click on an empty spot (what we left pending in step 13) calls `spawn()`, which creates a vertiki with a radius of just 15 % of its final one, and notes its final size in `target`. On every frame, the radius moves towards the target with the smoothing pattern from step 12:
+The browser has a `dblclick` event, but it isn't reliable on phones. So we detect it ourselves: if a press comes **less than 320 ms** after the previous one and **less than 30 px** away, it's a double-click.
 
 ```js
-c.r += (c.target - c.r) * 0.2;
+const double = now - lastDown.t < 320 && Math.hypot(e.clientX - lastDown.x, e.clientY - lastDown.y) < 30;
+if (double && !cellAt(e.clientX, e.clientY)) spawn(e.clientX, e.clientY);
 ```
 
-Since the radius is what the resting shape uses (step 6), the points push outwards and the vertiki **inflates, pushing its neighbours aside**. For free, without extra code.
+It only counts on an empty spot. On a vertiki, two quick taps are just two taps: they inflate it twice.
 
-### The first 2 seconds
+### Born small
 
-A newborn is delicate… but not that delicate:
-
-- For **2 seconds** (`youngUntil`) it can't be popped.
-- If you tap it during that time, **it grows 15 %** and the countdown starts again (`feed()`).
-- If it goes past a certain size (34 % of the short side of the screen), **it bursts**. That way the screen doesn't fill up with giants.
+`spawn()` creates a vertiki with a radius of just 15 % of its final one, and sets that final size as both its target (`target`) and its usual size (`rest`):
 
 ```js
-function feed(c) {
-  const next = (c.target ?? c.r) * 1.15;
-  if (next > Math.min(W, H) * 0.34) {
-    pop(c);
-    return;
-  }
-  c.target = next;
-  c.youngUntil = performance.now() + 2000;
+function spawn(x, y) {
+  const target = Math.min(W, H) * (0.07 + Math.random() * 0.14);
+  const c = makeCell(x, y, target * 0.15);
+  c.target = target;
+  c.rest = target;
+  cells.push(c);
 }
 ```
 
-(`a ?? b` means «`a`, or `b` if it has no value».)
-
-`performance.now()` gives the milliseconds since the page opened. We always use it to measure time: «until when» is «now + 2000».
+Nothing else is needed: the same code that inflates (step 13) makes it grow to full size, pushing its neighbours. And from birth it can be inflated until it bursts, like any other.
 
 ---
 
@@ -894,7 +923,7 @@ Why `0.0001` and not `0`? «Exponential» ramps (which sound more natural to the
 With this one function we make several sounds:
 
 - **Being born** («bloop»): a rising tone, lower the bigger the vertiki.
-- **Growing**: when you tap a newborn (step 14), a shorter «bloop» that rises a little higher the bigger it gets.
+- **Inflating**: on every tap (step 13), a shorter «bloop» that rises a little higher the bigger the vertiki gets. That way you can hear it getting close to the limit.
 
 ### Collisions: listening only to what matters
 
@@ -918,9 +947,9 @@ c.touching = touching;
 
 A `Set` is like an array where each thing appears only once and where asking «is this one in it?» (`has`) is very fast.
 
-### Popping: noise
+### Bursting: noise
 
-A popping balloon isn't a tone: it's **noise**, like the «shhh» of a badly tuned radio. We make it by filling 0.1 seconds of audio with random numbers:
+A bursting balloon isn't a tone: it's **noise**, like the «shhh» of a badly tuned radio. We make it by filling 0.1 seconds of audio with random numbers:
 
 ```js
 const len = Math.ceil(a.sampleRate * 0.1);      // how many samples make 0.1 s
