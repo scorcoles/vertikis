@@ -541,13 +541,13 @@ function popSound(size) {
     filter.frequency.exponentialRampToValueAtTime(300, t + 0.08);
     const gain = a.createGain();
     gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(0.55, t + 0.003);
+    gain.gain.exponentialRampToValueAtTime(0.41, t + 0.003);
     gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
     src.connect(filter).connect(gain).connect(master);
     src.start(t);
     src.stop(t + 0.1);
     // Los globos grandes revientan más graves.
-    tone(160 - Math.min(80, size / 3), 50, 0.12, 0.25);
+    tone(160 - Math.min(80, size / 3), 50, 0.12, 0.19);
   } catch {}
 }
 
