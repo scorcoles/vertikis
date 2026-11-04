@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>vertikis</title>
+    <meta name="description" content="Vertikis: criaturas blandas de colores que se empujan, se arrastran y revientan como globos. Un experimento de VERTIK." />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- El escenario: todo lo que se mueve se dibuja aquí con JavaScript. -->
+    <canvas data-cells aria-label="Vertikis: criaturas de colores que se pueden arrastrar" role="img"></canvas>
+
+    <!-- Pie con las instrucciones y los créditos. -->
+    <p class="credit">
+      <span class="credit__tag">vertikis</span>
+      Arrastra cada vertiki · doble clic para reventarlo o crear otro ·
+      <button type="button" class="homage" data-homage aria-expanded="false"
+        ><span class="homage__label">Homenaje a yugop.com — Yugo Nakamura, 2005</span><img
+          class="homage__shot"
+          src="yugop-2005.jpg"
+          width="474"
+          height="285"
+          alt="La home de yugop.com en 2005: círculos negros con pequeñas cruces blancas sobre fondo blanco"
+          loading="lazy"
+      /></button>
+      · Un experimento de <a href="https://www.vertik.net">VERTIK</a>
+    </p>
+
+    <!-- Un script normal (no un módulo): así funciona también abriendo el archivo con doble clic. -->
+    <script src="vertikis.js"></script>
+  </body>
+</html>
