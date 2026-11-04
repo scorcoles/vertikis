@@ -11,9 +11,6 @@
 
 const canvas = document.querySelector('[data-cells]');
 const ctx = canvas.getContext('2d');
-const credit = document.querySelector('.credit');
-// La misma medida que en style.css para «móvil».
-const narrow = window.matchMedia('(max-width: 47.99rem)');
 
 let W = 0; // ancho y alto del escenario, en píxeles CSS
 let H = 0;
@@ -25,9 +22,6 @@ function resize() {
   const first = W === 0;
   W = window.innerWidth;
   H = window.innerHeight;
-  // En móvil el canvas acaba donde empieza la franja del pie: ese es el suelo (paso 16).
-  if (narrow.matches) H -= credit.offsetHeight;
-  canvas.style.height = H + 'px';
   canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
   // A partir de aquí dibujamos en píxeles CSS y el navegador multiplica por dpr.

@@ -60,18 +60,6 @@ canvas.is-dragging {
   margin-right: 4px;
 }
 
-/* Móvil: el pie ocupa una franja blanca propia; los vertikis rebotan en su borde de arriba
-   (el canvas acaba ahí, ver «resize» en vertikis.js). */
-@media (max-width: 47.99rem) {
-  .credit {
-    left: 0;
-    right: 0;
-    bottom: 0;
-    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
-    background: #fff;
-  }
-}
-
 /* «Homenaje a…»: con el ratón encima (o al tocarlo) aparece la captura de la home
    original de yugop.com. No enlaza: esa web ya no funciona. */
 .homage {

@@ -871,14 +871,13 @@ El evento `deviceorientation` nos da dos ángulos: `gamma` (inclinación izquier
 
 En iPhone hay que **pedir permiso** para leer la inclinación, y solo se puede pedir dentro de un toque del usuario. Por eso lo pedimos en el primer `pointerdown`, a la vez que desbloqueamos el sonido. En Android funciona sin pedir nada.
 
-### Detalles de móvil
+### Un detalle de móvil
 
-- La gravedad es un 40 % más baja: en la mano, una pantalla pequeña con gravedad fuerte resulta nerviosa.
-- **El pie va en una franja blanca propia**: en el móvil, el texto de abajo quedaría encima de los vertikis. Así que en `resize()` restamos su altura al escenario: el canvas acaba donde empieza el pie, y los vertikis rebotan en su borde.
+La gravedad es un 40 % más baja que en escritorio: en la mano, una pantalla pequeña con gravedad fuerte resulta nerviosa.
 
 ```js
-if (narrow.matches) H -= credit.offsetHeight;
-canvas.style.height = H + 'px';
+const touchDevice = window.matchMedia('(pointer: coarse)').matches; // ¿pantalla táctil?
+const GRAVITY = touchDevice ? 0.27 : 0.45;
 ```
 
 ---
