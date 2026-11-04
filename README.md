@@ -824,7 +824,7 @@ function tone(from, to, dur, vol, type = 'sine') {
 Con esta única función hacemos dos sonidos:
 
 - **Nacer** («bloop»): un tono que sube, más grave cuanto más grande es el vertiki.
-- **Hover** («tip»): un tono cortísimo y muy bajito al pasar el ratón por encima, más agudo cuanto más pequeño es el vertiki. Para que no sea una ametralladora, como mucho uno cada 70 ms.
+- **Crecer**: al tocar un recién nacido (paso 14), un «bloop» más corto que sube un poco más agudo cuanto más grande se hace.
 
 ### Reventar: ruido
 

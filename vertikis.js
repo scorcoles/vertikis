@@ -554,16 +554,6 @@ function popSound(size) {
 // Crear: «bloop» que sube, como una burbuja que nace (más grave cuanto más grande).
 const createSound = (size) => tone(220 - Math.min(100, size / 2), 720 - Math.min(300, size), 0.14, 0.18);
 
-// Hover: «tip» suave al entrar en un vertiki; más agudo cuanto más pequeño.
-let lastHoverSound = 0;
-function hoverSound(size) {
-  const now = performance.now();
-  if (!unlocked || now - lastHoverSound < 70) return;
-  lastHoverSound = now;
-  const f = Math.max(300, Math.min(1400, 60000 / size));
-  tone(f, f * 1.25, 0.07, 0.03, 'triangle');
-}
-
 // =========================================================================================
 // Paso 13 · Reventar
 // =========================================================================================
@@ -696,10 +686,9 @@ canvas.addEventListener('pointerup', release);
 canvas.addEventListener('pointercancel', release);
 
 // Qué hay bajo el ratón, en cada fotograma (los vertikis se mueven aunque el ratón esté
-// quieto): para la sonrisa, el «tip» y el cursor («+» en los huecos, mano encima).
+// quieto): para la sonrisa y el cursor («+» en los huecos, mano encima).
 function updateHover() {
   const over = mouseInside ? cellAt(pointer.x, pointer.y) : null;
-  if (over && over !== hovered) hoverSound(over.r);
   hovered = over;
   canvas.classList.toggle('is-over', !!hovered);
 }
