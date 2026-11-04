@@ -917,7 +917,7 @@ La mejor forma de aprender es romper cosas. Algunas ideas, de más fácil a más
 
 Un experimento de [VERTIK](https://www.vertik.net).
 
-Homenaje a la home de [yugop.com](https://yugop.com/) de Yugo Nakamura (2005), con sus círculos negros blandos que se empujaban y se arrastraban. Implementación propia desde cero.
+Homenaje a la home de [yugop.com](https://yugop.com/) de Yugo Nakamura (2005), con sus círculos negros blandos que se empujaban y se arrastraban.
 
 ## Licencia
 
