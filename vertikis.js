@@ -581,7 +581,7 @@ function bump(speed, size) {
   if (speed < 2 || now - lastBump < 60) return;
   lastBump = now;
   const f = Math.max(90, Math.min(260, 16000 / size));
-  tone(f, f * 0.6, 0.09, Math.min(0.04, speed * 0.003));
+  tone(f, f * 0.6, 0.09, Math.min(0.06, speed * 0.0045));
 }
 
 // =========================================================================================
