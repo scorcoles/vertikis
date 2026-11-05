@@ -894,6 +894,8 @@ window.vertikis = {
     if (wasPixel !== !!pixel) resize();
     // La dirección lleva la visualización (#pixel, #blueprint), para poder compartirla.
     // Sin historial: cambiar de modo no llena el botón «atrás».
+    // En el pie, el nombre de la que está puesta (entre las flechas).
+    for (const el of document.querySelectorAll('[data-mode-name]')) el.textContent = name;
     const hash = name === 'normal' ? '' : `#${name}`;
     if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
     return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, blueprint: '⌗ blueprint', yugop: '+ yugop', riso: '◐ riso', ascii: '@ ascii' }[name];
@@ -914,6 +916,24 @@ const modeFromHash = () => {
   window.vertikis.mode(MODES.includes(name) ? name : 'normal');
 };
 queueMicrotask(modeFromHash);
+
+// Las flechas del pie: la visualización anterior y la siguiente (dando la vuelta).
+const stepMode = (by) => {
+  const n = MODES.length;
+  window.vertikis.mode(MODES[(MODES.indexOf(currentMode()) + by + n) % n]);
+};
+for (const [sel, by] of [['[data-mode-prev]', -1], ['[data-mode-next]', 1]]) {
+  for (const el of document.querySelectorAll(sel)) {
+    el.style.pointerEvents = 'auto';
+    el.addEventListener('click', () => {
+      if (!unlocked) {
+        unlocked = true;
+        ac();
+      }
+      stepMode(by);
+    });
+  }
+}
 window.addEventListener('hashchange', modeFromHash);
 
 // =========================================================================================

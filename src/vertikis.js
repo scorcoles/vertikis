@@ -1212,6 +1212,9 @@ window.vertikis = {
     //es Sin historial: cambiar de modo no llena el botón «atrás».
     //en The address carries the visualisation (#pixel, #blueprint), so it can be shared.
     //en Without history: switching modes doesn't fill up the «back» button.
+    //es En el pie, el nombre de la que está puesta (entre las flechas).
+    //en In the footer, the name of the one that's on (between the arrows).
+    for (const el of document.querySelectorAll('[data-mode-name]')) el.textContent = name;
     const hash = name === 'normal' ? '' : `#${name}`;
     if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
     return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, blueprint: '⌗ blueprint', yugop: '+ yugop', riso: '◐ riso', ascii: '@ ascii' }[name];
@@ -1237,6 +1240,25 @@ const modeFromHash = () => {
   window.vertikis.mode(MODES.includes(name) ? name : 'normal');
 };
 queueMicrotask(modeFromHash);
+
+//es Las flechas del pie: la visualización anterior y la siguiente (dando la vuelta).
+//en The footer arrows: the previous and the next visualisation (wrapping round).
+const stepMode = (by) => {
+  const n = MODES.length;
+  window.vertikis.mode(MODES[(MODES.indexOf(currentMode()) + by + n) % n]);
+};
+for (const [sel, by] of [['[data-mode-prev]', -1], ['[data-mode-next]', 1]]) {
+  for (const el of document.querySelectorAll(sel)) {
+    el.style.pointerEvents = 'auto';
+    el.addEventListener('click', () => {
+      if (!unlocked) {
+        unlocked = true;
+        ac();
+      }
+      stepMode(by);
+    });
+  }
+}
 window.addEventListener('hashchange', modeFromHash);
 
 //es =========================================================================================

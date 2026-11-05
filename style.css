@@ -58,6 +58,33 @@ canvas.is-dragging {
   margin: 0 0.6em;
 }
 
+/* Las flechas para cambiar de visualización, con su nombre en medio. */
+.credit__modes {
+  white-space: nowrap;
+}
+
+.credit__modes button {
+  /* Más zona para el dedo que lo que se ve. */
+  margin: -8px 0;
+  padding: 8px 0.5em;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.credit__modes button:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.credit__modes button:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 1px;
+}
+
 .credit__tag {
   display: inline-block;
   padding: 2px 5px;
