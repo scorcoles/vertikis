@@ -196,4 +196,11 @@ canvas.is-dragging {
   .credit__sep:has(+ wbr + .credit__modes) {
     display: none;
   }
+
+  /* La tira de riso y wire ocupa todo el ancho: el mismo margen a cada lado. */
+  .is-riso .credit,
+  .is-wire .credit {
+    right: 6px;
+    padding-right: 2px;
+  }
 }
