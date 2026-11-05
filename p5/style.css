@@ -1,0 +1,321 @@
+/* Página de la versión p5.js: el sketch arriba y la explicación debajo. */
+
+:root {
+  --ink: #1b1b1b;
+  --muted: #5c5c5c;
+  --line: #e4e4e4;
+  --code-bg: #f4f4f2;
+  --mono: ui-monospace, Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: #fff;
+  color: var(--ink);
+  font: 17px/1.6 var(--sans);
+}
+
+/* El escenario: el sketch lo mide y dibuja dentro. «touch-action: none» evita que arrastrar
+   un vertiki con el dedo haga scroll. */
+#stage {
+  position: relative;
+  height: 78svh;
+  min-height: 22rem;
+  border-bottom: 1px solid var(--line);
+}
+
+#stage canvas {
+  display: block;
+  touch-action: none;
+}
+
+.stage__tag {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  margin: 0;
+  font: 9px/1.5 var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.stage__tag span {
+  display: inline-block;
+  padding: 2px 5px;
+  margin-right: 4px;
+  background: var(--ink);
+  color: #fff;
+}
+
+/* Controles: los dos números que mandan, en vivo. */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 2rem;
+  align-items: center;
+  padding: 1rem 16px;
+  max-width: 44rem;
+  margin: 0 auto;
+  font: 13px/1.4 var(--mono);
+}
+
+.controls label {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.controls output {
+  min-width: 2.6em;
+  font-variant-numeric: tabular-nums;
+}
+
+.controls input[type="range"] {
+  width: 9rem;
+  accent-color: var(--ink);
+}
+
+.controls button {
+  font: inherit;
+  padding: 0.45em 0.8em;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.controls button:hover {
+  background: var(--ink);
+  color: #fff;
+}
+
+.controls :focus-visible {
+  outline: 2px solid #6c9bd2;
+  outline-offset: 2px;
+}
+
+/* El texto. */
+main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 2.5rem 16px 5rem;
+}
+
+.lang {
+  margin: 0 0 2rem;
+  font: 13px/1.4 var(--mono);
+}
+
+h1 {
+  margin: 0 0 1rem;
+  font-size: clamp(2rem, 6vw, 3rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+h2 {
+  margin: 3.5rem 0 0.75rem;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0 0 1rem;
+  text-wrap: pretty;
+}
+
+.lead {
+  font-size: 1.2rem;
+  line-height: 1.5;
+}
+
+a {
+  color: inherit;
+  text-underline-offset: 0.18em;
+}
+
+code {
+  font: 0.88em/1 var(--mono);
+  background: var(--code-bg);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+pre {
+  margin: 1.25rem 0 1.5rem;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  background: var(--code-bg);
+  border-radius: 6px;
+  font: 13.5px/1.55 var(--mono);
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  font: inherit;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+footer {
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+@media (max-width: 40rem) {
+  #stage {
+    height: 66svh;
+  }
+}
+
+/* Editor en vivo: más ancho que el texto; código y resultado lado a lado (apilados en
+   pantallas estrechas). */
+.editor {
+  position: relative;
+  left: 50%;
+  width: min(76rem, 100vw - 32px);
+  margin: 1.5rem 0 1rem;
+  transform: translateX(-50%);
+}
+
+.editor__panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.editor__code,
+.editor__preview {
+  height: 36rem;
+  min-width: 0;
+}
+
+.editor__code {
+  border-right: 1px solid var(--line);
+  background: var(--code-bg);
+}
+
+.editor__code .CodeMirror {
+  height: 100%;
+  background: transparent;
+  font: 13px/1.55 var(--mono);
+}
+
+.editor__code .CodeMirror-gutters {
+  background: transparent;
+  border-right: 0;
+}
+
+.editor__code .CodeMirror-linenumber {
+  color: #a3a3a3;
+}
+
+.editor__code .cm-s-default .cm-comment {
+  color: #7a7a7a;
+}
+
+.editor__preview {
+  position: relative;
+  background: #fff;
+}
+
+.editor__preview iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.editor__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  margin-top: 0.75rem;
+  font: 13px/1.4 var(--mono);
+}
+
+.editor__bar button {
+  font: inherit;
+  padding: 0.45em 0.8em;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.editor__bar button:hover {
+  background: var(--ink);
+  color: #fff;
+}
+
+.editor__bar :focus-visible {
+  outline: 2px solid #6c9bd2;
+  outline-offset: 2px;
+}
+
+.editor__status {
+  color: var(--muted);
+}
+
+.editor__status.is-error {
+  color: #b3261e;
+}
+
+.editor.is-offline .editor__panes,
+.editor.is-offline .editor__bar button {
+  display: none;
+}
+
+@media (max-width: 56rem) {
+  .editor__panes {
+    grid-template-columns: 1fr;
+  }
+
+  .editor__code {
+    height: 26rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .editor__preview {
+    height: 24rem;
+  }
+}
+
+kbd {
+  font: 0.82em/1 var(--mono);
+  padding: 0.15em 0.4em;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+}
+
+.editor__code .is-error-line {
+  background: #fbe3e1;
+}

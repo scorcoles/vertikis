@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>vertikis en p5.js</title>
+    <meta name="description" content="La versión corta de los vertikis, en p5.js: criaturas blandas que se empujan y se aplastan, y las cinco ideas que las hacen funcionar." />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="stage" aria-label="Vertikis: criaturas de colores que se pueden arrastrar" role="img">
+      <p class="stage__tag"><span>vertikis · p5.js</span> Arrastra · toca para inflar · doble clic en un hueco para crear</p>
+    </div>
+
+    <div class="controls">
+      <label>Rigidez <input type="range" id="stiffness" min="0.03" max="0.9" step="0.01" value="0.45" /> <output for="stiffness">0,45</output></label>
+      <label>Gravedad <input type="range" id="gravity" min="0" max="1.2" step="0.01" value="0.45" /> <output for="gravity">0,45</output></label>
+      <button type="button" id="reset">Volver a empezar</button>
+    </div>
+
+    <main>
+      <p class="lang"><strong>Español</strong> · <a href="en.html">English</a></p>
+
+      <h1>Vertikis en p5.js</h1>
+      <p class="lead">
+        Esta es la versión corta de los vertikis: un solo archivo, <a href="sketch.js"><code>sketch.js</code></a>, con
+        unas 300 líneas de <a href="https://p5js.org">p5.js</a>. Sin sonido ni sustos: solo lo que hace que se
+        comporten como globos blandos. Y eso cabe en cinco ideas.
+      </p>
+
+      <h2>Un vertiki es un anillo de puntos</h2>
+      <p>
+        No hay ningún «cuerpo blando» escondido: cada vertiki son 24 puntos colocados en círculo. Lo que vemos es una
+        curva suave que pasa por todos ellos (<code>splineVertex</code>), con una cara pintada encima, en su centro.
+        Todo lo demás consiste en decidir, 60 veces por segundo, dónde va cada punto.
+      </p>
+
+      <h2>La velocidad es de dónde vienes</h2>
+      <p>
+        Los puntos no guardan su velocidad. Guardan dónde estaban en el paso anterior, y la velocidad es la diferencia.
+        Se llama integración de Verlet, y tiene una ventaja enorme: si algo empuja un punto, por un choque o por un
+        borde, la velocidad se corrige sola en el paso siguiente.
+      </p>
+<pre><code>const vx = (p.x - p.oldX) * f;
+const vy = (p.y - p.oldY) * f;
+p.oldX = p.x;
+p.oldY = p.y;
+p.x += vx;
+p.y += vy + GRAVITY;</code></pre>
+      <p>
+        <code>f</code> es el rozamiento: cuánta velocidad se conserva en cada paso (un 96 %). Sin él, los vertikis
+        botarían para siempre.
+      </p>
+
+      <h2>Recordar la forma</h2>
+      <p>
+        Si solo hubiera inercia y gravedad, los puntos caerían cada uno por su lado. El truco que los mantiene unidos se
+        llama <em>shape matching</em>: en cada paso calculamos dónde está el vertiki (la media de sus puntos) y cuánto ha
+        girado, colocamos ahí su círculo de reposo y cada punto tira un poco hacia su sitio en ese círculo.
+      </p>
+<pre><code>fitShape(v);
+v.points.forEach((p, i) =&gt; {
+  const a = (i / POINTS) * TWO_PI + v.angle;
+  p.x += (v.cx + cos(a) * v.r - p.x) * STIFFNESS;
+  p.y += (v.cy + sin(a) * v.r - p.y) * STIFFNESS;
+});</code></pre>
+      <p>
+        <code>STIFFNESS</code> es la rigidez de arriba. Con 0,05 los vertikis son gelatina y se escurren; con 0,9 son
+        pelotas de goma. El giro importa: sin él, un vertiki que rueda volvería a su forma de golpe, como si lo
+        enderezara una mano invisible.
+      </p>
+
+      <h2>Chocar con dos reglas simples</h2>
+      <p>
+        Calcular choques exactos entre dos curvas blandas es difícil. Aquí no se hace. Se usan dos reglas que, juntas,
+        se ven como un choque de verdad:
+      </p>
+      <p>
+        <strong>Uno:</strong> cada punto que entra en otro vertiki, visto como un círculo, sale empujado hacia fuera.
+        Solo se mueven los puntos que tocan, y por eso se aplastan justo por la zona de contacto.
+      </p>
+<pre><code>const d = dist(p.x, p.y, b.cx, b.cy);
+if (d &gt;= R || d === 0) continue;
+const push = (R - d) * 0.5;
+p.x += ((p.x - b.cx) / d) * push;
+p.y += ((p.y - b.cy) / d) * push;</code></pre>
+      <p>
+        <strong>Dos:</strong> si dos centros están más cerca de lo que permiten sus tamaños, los dos vertikis se apartan
+        enteros, cada uno según lo que pesa (su superficie). El que llevas agarrado pesa seis veces más, y así puedes
+        abrirte paso entre los demás.
+      </p>
+
+      <h2>Muchos pasos pequeños</h2>
+      <p>
+        Cada fotograma la física se calcula cuatro veces seguidas (<code>SUBSTEPS</code>), con pasos pequeños. Un paso
+        grande deja que los puntos se metan demasiado unos en otros antes de corregirlos, y todo tiembla. Cuatro
+        pequeños, cada uno con su corrección, se ven firmes y suaves.
+      </p>
+
+      <h2>Lo demás es carácter</h2>
+      <p>
+        La cara se inclina con el cuerpo, pero solo un tercio, para que nunca quede boca abajo. Los ojos miran al
+        puntero y parpadean cada pocos segundos, y la sonrisa se abre al pasar por encima. Un toque infla el vertiki un
+        15 %: si se pasa de tamaño, revienta en gotas que caen. Si lo dejas, se desinfla despacio. Y un doble clic en un
+        hueco hace nacer uno pequeño que crece hasta su tamaño.
+      </p>
+
+      <h2>Cámbialo tú</h2>
+      <p>
+        Aquí tienes el <code>sketch.js</code> entero. Cambia lo que quieras: el resultado de la derecha se vuelve a ejecutar en cuanto dejas de escribir (o con <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd>). Prueba a poner <code>POINTS</code> a 6, la gravedad en negativo u otros colores en <code>PALETTE</code>.
+      </p>
+      <div
+        class="editor"
+        id="editor"
+        data-label="Código de sketch.js, editable"
+        data-preview-label="Resultado del código"
+        data-running="Ejecutando…"
+        data-ok="Funcionando"
+        data-line="línea"
+        data-offline="El editor necesita abrir la página desde un servidor: en scorcoles.github.io/vertikis/p5 o con «python3 -m http.server»."
+      >
+        <div class="editor__panes">
+          <div class="editor__code"></div>
+          <div class="editor__preview"></div>
+        </div>
+        <div class="editor__bar">
+          <button type="button" data-run>Ejecutar</button>
+          <button type="button" data-reset>Restaurar el original</button>
+          <span class="editor__status" role="status"></span>
+        </div>
+      </div>
+
+      <h2>Llévatelo</h2>
+      <p>
+        Abre <a href="https://editor.p5js.org">editor.p5js.org</a>, pega <a href="sketch.js"><code>sketch.js</code></a>
+        en lugar del sketch de ejemplo y dale a ▶. Funciona tal cual, a pantalla completa. Prueba a cambiar los números
+        de arriba del archivo, los colores o la cara. Por ejemplo: ¿y si la gravedad apuntara hacia el ratón?
+      </p>
+      <p class="note">
+        Usa p5.js 2. En p5.js 1.x, cambia <code>splineVertex</code> por <code>curveVertex</code> (y repite al final los
+        tres primeros puntos para cerrar la curva).
+      </p>
+
+      <footer>
+        <p>
+          La <a href="../index.html">versión completa</a> está escrita sin librerías y añade sonido sintetizado, la inclinación del
+          móvil, los sustos y el modo píxel. En el <a href="https://github.com/scorcoles/vertikis#tutorial">README</a>
+          hay un tutorial que la construye paso a paso.
+        </p>
+        <p>Un experimento de <a href="https://www.vertik.net">VERTIK</a>. Homenaje a yugop.com (Yugo Nakamura, 2005). Licencia MIT.</p>
+      </footer>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/p5@2.3.4/lib/p5.min.js"></script>
+    <script src="sketch.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+    <script src="editor.js"></script>
+    <script>
+      // Los controles cambian los números del sketch en vivo.
+      for (const [id, apply] of [
+        ['stiffness', (n) => (STIFFNESS = n)],
+        ['gravity', (n) => (GRAVITY = n)],
+      ]) {
+        const input = document.getElementById(id);
+        const out = document.querySelector(`output[for="${id}"]`);
+        input.addEventListener('input', () => {
+          const n = Number(input.value);
+          apply(n);
+          out.value = n.toFixed(2).replace('.', document.documentElement.lang === 'es' ? ',' : '.');
+        });
+      }
+      document.getElementById('reset').addEventListener('click', () => populate());
+    </script>
+  </body>
+</html>

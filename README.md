@@ -15,6 +15,8 @@ Un experimento de [VERTIK](https://www.vertik.net). Homenaje a la home de yugop.
 
 Y un **tutorial paso a paso** para aprender a hacerlo desde cero, con una página que funciona por cada paso: [empieza aquí](#tutorial).
 
+¿Prefieres [p5.js](https://p5js.org)? Hay una **versión corta en p5.js**, en un solo archivo de unas 300 líneas, con una página que explica en cinco ideas cómo funciona y deja tocar la rigidez y la gravedad en vivo, con un editor para cambiar el código y ver el resultado al momento: [scorcoles.github.io/vertikis/p5](https://scorcoles.github.io/vertikis/p5/) · [código](p5/sketch.js). Se pega tal cual en [editor.p5js.org](https://editor.p5js.org).
+
 ---
 
 ## Cómo ejecutarlo
@@ -36,6 +38,7 @@ Lo que hay en el repo:
 | `style.css` | Que el canvas ocupe toda la ventana, el cursor y el pie. |
 | `vertikis.js` | Todo lo demás. Sus secciones llevan el número del paso del tutorial que las explica. |
 | `steps/es/` · `steps/en/` | Una página por paso del tutorial (`01.html` … `16.html`), en español y en inglés. Cada una se abre con doble clic y funciona sola. |
+| `p5/` | La versión corta en p5.js: `sketch.js`, su página explicativa y el editor en vivo (`editor.js`) (`index.html` en español, `en.html` en inglés). Carga p5.js desde internet. No forma parte del tutorial ni la genera `tools/build.mjs`: se edita a mano. |
 | `src/` · `tools/` | Solo para quien cambie el código: ver [Para quien mantenga el repo](#para-quien-mantenga-el-repo). |
 
 ---

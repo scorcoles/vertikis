@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>vertikis in p5.js</title>
+    <meta name="description" content="The short version of the vertikis, in p5.js: soft creatures that push and squash each other, and the five ideas that make them work." />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="stage" aria-label="Vertikis: colourful creatures you can drag" role="img">
+      <p class="stage__tag"><span>vertikis · p5.js</span> Drag · tap to inflate · double-click an empty spot to create</p>
+    </div>
+
+    <div class="controls">
+      <label>Stiffness <input type="range" id="stiffness" min="0.03" max="0.9" step="0.01" value="0.45" /> <output for="stiffness">0.45</output></label>
+      <label>Gravity <input type="range" id="gravity" min="0" max="1.2" step="0.01" value="0.45" /> <output for="gravity">0.45</output></label>
+      <button type="button" id="reset">Start over</button>
+    </div>
+
+    <main>
+      <p class="lang"><a href="index.html">Español</a> · <strong>English</strong></p>
+
+      <h1>Vertikis in p5.js</h1>
+      <p class="lead">
+        This is the short version of the vertikis: a single file, <a href="sketch.js"><code>sketch.js</code></a>, with
+        about 300 lines of <a href="https://p5js.org">p5.js</a>. No sound, no frights: only what makes them behave like
+        soft balloons. And that fits in five ideas.
+      </p>
+
+      <h2>A vertiki is a ring of points</h2>
+      <p>
+        There's no hidden «soft body»: each vertiki is 24 points placed in a circle. What you see is a smooth curve that
+        runs through all of them (<code>splineVertex</code>), with a face painted on top, at its centre. Everything else
+        is deciding, 60 times a second, where each point goes.
+      </p>
+
+      <h2>Speed is where you came from</h2>
+      <p>
+        The points don't store their speed. They store where they were on the previous step, and the speed is the
+        difference. It's called Verlet integration, and it has one huge advantage: if something pushes a point, a
+        collision or an edge, the speed fixes itself on the next step.
+      </p>
+<pre><code>const vx = (p.x - p.oldX) * f;
+const vy = (p.y - p.oldY) * f;
+p.oldX = p.x;
+p.oldY = p.y;
+p.x += vx;
+p.y += vy + GRAVITY;</code></pre>
+      <p>
+        <code>f</code> is friction: how much speed is kept on each step (96 %). Without it, the vertikis would bounce
+        forever.
+      </p>
+
+      <h2>Remembering the shape</h2>
+      <p>
+        With only inertia and gravity, the points would each fall their own way. The trick that holds them together is
+        called <em>shape matching</em>: on every step we work out where the vertiki is (the average of its points) and
+        how much it has turned, place its resting circle there, and each point pulls a little towards its spot on that
+        circle.
+      </p>
+<pre><code>fitShape(v);
+v.points.forEach((p, i) =&gt; {
+  const a = (i / POINTS) * TWO_PI + v.angle;
+  p.x += (v.cx + cos(a) * v.r - p.x) * STIFFNESS;
+  p.y += (v.cy + sin(a) * v.r - p.y) * STIFFNESS;
+});</code></pre>
+      <p>
+        <code>STIFFNESS</code> is the stiffness slider above. At 0.05 the vertikis are jelly and ooze; at 0.9 they're
+        rubber balls. The turn matters: without it, a rolling vertiki would snap back to its shape, as if an invisible
+        hand set it upright.
+      </p>
+
+      <h2>Colliding with two simple rules</h2>
+      <p>
+        Working out exact collisions between two soft curves is hard. It isn't done here. Instead there are two rules
+        that, together, look like a real collision:
+      </p>
+      <p>
+        <strong>One:</strong> every point that gets inside another vertiki, seen as a circle, is pushed back out. Only
+        the touching points move, and that's why they squash right where they meet.
+      </p>
+<pre><code>const d = dist(p.x, p.y, b.cx, b.cy);
+if (d &gt;= R || d === 0) continue;
+const push = (R - d) * 0.5;
+p.x += ((p.x - b.cx) / d) * push;
+p.y += ((p.y - b.cy) / d) * push;</code></pre>
+      <p>
+        <strong>Two:</strong> if two centres are closer than their sizes allow, both vertikis move apart as a whole,
+        each according to its weight (its area). The one you're holding weighs six times more, so you can push your way
+        through the others.
+      </p>
+
+      <h2>Many small steps</h2>
+      <p>
+        Every frame the physics runs four times in a row (<code>SUBSTEPS</code>), in small steps. One big step lets
+        points sink too far into each other before they're corrected, and everything jitters. Four small ones, each
+        with its own correction, look firm and smooth.
+      </p>
+
+      <h2>The rest is character</h2>
+      <p>
+        The face tilts with the body, but only by a third, so it's never upside down. The eyes follow the pointer and
+        blink every few seconds, and the smile widens when you hover over it. A tap inflates the vertiki by 15 %: if it
+        gets too big, it bursts into falling drops. Leave it alone and it slowly deflates. And a double-click on an empty
+        spot gives birth to a small one that grows to its size.
+      </p>
+
+      <h2>Change it yourself</h2>
+      <p>
+        Here’s the whole <code>sketch.js</code>. Change anything: the result on the right runs again as soon as you stop typing (or with <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd>). Try setting <code>POINTS</code> to 6, making gravity negative or putting other colours in <code>PALETTE</code>.
+      </p>
+      <div
+        class="editor"
+        id="editor"
+        data-label="sketch.js code, editable"
+        data-preview-label="Result of the code"
+        data-running="Running…"
+        data-ok="Running fine"
+        data-line="line"
+        data-offline="The editor needs the page to be served: at scorcoles.github.io/vertikis/p5 or with «python3 -m http.server»."
+      >
+        <div class="editor__panes">
+          <div class="editor__code"></div>
+          <div class="editor__preview"></div>
+        </div>
+        <div class="editor__bar">
+          <button type="button" data-run>Run</button>
+          <button type="button" data-reset>Restore the original</button>
+          <span class="editor__status" role="status"></span>
+        </div>
+      </div>
+
+      <h2>Take it with you</h2>
+      <p>
+        Open <a href="https://editor.p5js.org">editor.p5js.org</a>, paste <a href="sketch.js"><code>sketch.js</code></a>
+        over the example sketch and press ▶. It works as is, full screen. Try changing the numbers at the top of the
+        file, the colours or the face. For instance: what if gravity pointed at the mouse?
+      </p>
+      <p class="note">
+        It uses p5.js 2. On p5.js 1.x, swap <code>splineVertex</code> for <code>curveVertex</code> (and repeat the first
+        three points at the end to close the curve). The comments in <code>sketch.js</code> are in Spanish.
+      </p>
+
+      <footer>
+        <p>
+          The <a href="../index.html">full version</a> is written without libraries and adds synthesised sound, phone
+          tilt, frights and pixel mode. The <a href="https://github.com/scorcoles/vertikis/blob/main/README.en.md#tutorial">README</a>
+          has a tutorial that builds it step by step.
+        </p>
+        <p>An experiment by <a href="https://www.vertik.net">VERTIK</a>. A tribute to yugop.com (Yugo Nakamura, 2005). MIT licence.</p>
+      </footer>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/p5@2.3.4/lib/p5.min.js"></script>
+    <script src="sketch.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+    <script src="editor.js"></script>
+    <script>
+      // The sliders change the sketch's numbers live.
+      for (const [id, apply] of [
+        ['stiffness', (n) => (STIFFNESS = n)],
+        ['gravity', (n) => (GRAVITY = n)],
+      ]) {
+        const input = document.getElementById(id);
+        const out = document.querySelector(`output[for="${id}"]`);
+        input.addEventListener('input', () => {
+          const n = Number(input.value);
+          apply(n);
+          out.value = n.toFixed(2);
+        });
+      }
+      document.getElementById('reset').addEventListener('click', () => populate());
+    </script>
+  </body>
+</html>
