@@ -883,10 +883,11 @@ window.vertikis = {
 
 // Las visualizaciones, en el orden en que pasa por ellas el doble clic en «vertikis».
 // Para añadir una: su nombre aquí y lo que dibuje en draw().
-const MODES = ['normal', 'pixel', 'blueprint', 'yugop'];
+// El plano va siempre el último.
+const MODES = ['normal', 'pixel', 'yugop', 'blueprint'];
 const currentMode = () => (yugop ? 'yugop' : blueprint ? 'blueprint' : pixel ? 'pixel' : 'normal');
 
-// Al abrir una dirección con #pixel, #blueprint o #yugop (o al cambiarla a mano), se pone esa
+// Al abrir una dirección con #pixel, #yugop o #blueprint (o al cambiarla a mano), se pone esa
 // visualización. Va en una microtarea: cuando el escenario ya está montado.
 const modeFromHash = () => {
   const name = decodeURIComponent(location.hash.slice(1));

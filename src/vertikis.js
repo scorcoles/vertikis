@@ -1196,12 +1196,14 @@ window.vertikis = {
 //es Para añadir una: su nombre aquí y lo que dibuje en draw().
 //en The visualisations, in the order the double-click on «vertikis» goes through them. To
 //en add one: its name here and whatever it draws in draw().
-const MODES = ['normal', 'pixel', 'blueprint', 'yugop'];
+//es El plano va siempre el último.
+//en The blueprint always goes last.
+const MODES = ['normal', 'pixel', 'yugop', 'blueprint'];
 const currentMode = () => (yugop ? 'yugop' : blueprint ? 'blueprint' : pixel ? 'pixel' : 'normal');
 
-//es Al abrir una dirección con #pixel, #blueprint o #yugop (o al cambiarla a mano), se pone esa
+//es Al abrir una dirección con #pixel, #yugop o #blueprint (o al cambiarla a mano), se pone esa
 //es visualización. Va en una microtarea: cuando el escenario ya está montado.
-//en Opening an address with #pixel, #blueprint or #yugop (or changing it by hand) switches to that
+//en Opening an address with #pixel, #yugop or #blueprint (or changing it by hand) switches to that
 //en visualisation. It runs in a microtask: once the stage is set up.
 const modeFromHash = () => {
   const name = decodeURIComponent(location.hash.slice(1));
