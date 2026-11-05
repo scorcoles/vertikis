@@ -179,9 +179,15 @@ canvas.is-dragging {
 /* En el móvil (y en pantallas táctiles), «Prev · Next» en su propia línea, con más aire
    para el dedo; el «·» que lo separaba del resto sobra. */
 @media (max-width: 63.99rem), (pointer: coarse) {
+  /* Abajo, a todo el ancho: «← Prev» a la izquierda y «Next →» a la derecha. */
   .credit__modes {
-    display: block;
+    display: flex;
+    justify-content: space-between;
     margin-top: 6px;
+  }
+
+  .credit__modes .credit__sep {
+    display: none;
   }
 
   .credit__modes button {
@@ -191,6 +197,10 @@ canvas.is-dragging {
 
   .credit__modes button:first-child {
     margin-left: -6px;
+  }
+
+  .credit__modes button:last-child {
+    margin-right: -6px;
   }
 
   .credit__sep:has(+ wbr + .credit__modes) {
