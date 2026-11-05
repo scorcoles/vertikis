@@ -1154,21 +1154,56 @@ window.vertikis = {
   //es vertikis.pixelate(): versión píxel (otra vez, o pixelate(false), para volver).
   //en vertikis.pixelate(): pixel version (again, or pixelate(false), to go back).
   pixelate(on = !pixel) {
-    pixel = on ? pixelSize() : 0;
-    if (on) loadPixelFonts();
-    document.documentElement.classList.toggle('is-pixel', !!on);
-    resize();
-    return on ? `▦ pixel ×${pixel}` : '● smooth';
+    return this.mode(on ? 'pixel' : 'normal');
   },
   //es vertikis.blueprint(): el plano, en alambre (otra vez, o blueprint(false), para volver).
   //en vertikis.blueprint(): the blueprint, in wireframe (again, or blueprint(false), to go back).
   blueprint(on = !blueprint) {
-    if (on && pixel) this.pixelate(false);
-    blueprint = !!on;
+    return this.mode(on ? 'blueprint' : 'normal');
+  },
+  //es vertikis.mode('pixel'): cambia de visualización por su nombre (ver MODES). Sin
+  //es nombre, dice cuál está puesta.
+  //en vertikis.mode('pixel'): switches visualisation by name (see MODES). With no name, it
+  //en says which one is on.
+  mode(name) {
+    if (name === undefined) return currentMode();
+    if (!MODES.includes(name)) return `? ${MODES.join(' · ')}`;
+    const wasPixel = !!pixel;
+    pixel = name === 'pixel' ? pixelSize() : 0;
+    blueprint = name === 'blueprint';
+    if (pixel) loadPixelFonts();
+    document.documentElement.classList.toggle('is-pixel', !!pixel);
     document.documentElement.classList.toggle('is-blueprint', blueprint);
-    return blueprint ? '⌗ blueprint' : '● smooth';
+    //es El modo píxel cambia la resolución del canvas: hay que rehacerlo al entrar y al salir.
+    //en Pixel mode changes the canvas resolution: it has to be redone going in and out.
+    if (wasPixel !== !!pixel) resize();
+    //es La dirección lleva la visualización (#pixel, #blueprint), para poder compartirla.
+    //es Sin historial: cambiar de modo no llena el botón «atrás».
+    //en The address carries the visualisation (#pixel, #blueprint), so it can be shared.
+    //en Without history: switching modes doesn't fill up the «back» button.
+    const hash = name === 'normal' ? '' : `#${name}`;
+    if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
+    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, blueprint: '⌗ blueprint' }[name];
   },
 };
+
+//es Las visualizaciones, en el orden en que pasa por ellas el doble clic en «vertikis».
+//es Para añadir una: su nombre aquí y lo que dibuje en draw().
+//en The visualisations, in the order the double-click on «vertikis» goes through them. To
+//en add one: its name here and whatever it draws in draw().
+const MODES = ['normal', 'pixel', 'blueprint'];
+const currentMode = () => (blueprint ? 'blueprint' : pixel ? 'pixel' : 'normal');
+
+//es Al abrir una dirección con #pixel o #blueprint (o al cambiarla a mano), se pone esa
+//es visualización. Va en una microtarea: cuando el escenario ya está montado.
+//en Opening an address with #pixel or #blueprint (or changing it by hand) switches to that
+//en visualisation. It runs in a microtask: once the stage is set up.
+const modeFromHash = () => {
+  const name = decodeURIComponent(location.hash.slice(1));
+  window.vertikis.mode(MODES.includes(name) ? name : 'normal');
+};
+queueMicrotask(modeFromHash);
+window.addEventListener('hashchange', modeFromHash);
 
 //es =========================================================================================
 //es Extra · Modo píxel: el canvas se dibuja a baja resolución (cada píxel real ocupa
@@ -1378,9 +1413,7 @@ if (creditTag) {
       unlocked = true;
       ac();
     }
-    if (blueprint) window.vertikis.blueprint(false);
-    else if (pixel) window.vertikis.blueprint(true);
-    else window.vertikis.pixelate(true);
+    window.vertikis.mode(MODES[(MODES.indexOf(currentMode()) + 1) % MODES.length]);
   });
 }
 
