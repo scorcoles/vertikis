@@ -52,6 +52,12 @@ canvas.is-dragging {
   pointer-events: auto;
 }
 
+/* Los «·» que separan las frases, con aire fijo a cada lado (no dependen de los espacios
+   del HTML, que se pierden o se encogen según el salto de línea y la fuente). */
+.credit__sep {
+  margin: 0 0.6em;
+}
+
 .credit__tag {
   display: inline-block;
   padding: 2px 5px;
