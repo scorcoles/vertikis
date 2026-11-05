@@ -857,31 +857,32 @@ let weedGrab = null;
 
 function makeWeed() {
   const r = Math.max(26, Math.min(56, Math.min(W, H) * 0.07));
-  // Una maraña: trozos de óvalos al azar que no se salen del círculo, más unas ramitas que
-  // asoman.
-  const curves = [];
-  for (let i = 0; i < 22; i++) {
-    const rr = r * (0.35 + Math.random() * 0.5);
-    const a = Math.random() * Math.PI * 2;
-    const d = Math.random() * (r - rr);
-    curves.push({
-      x: Math.cos(a) * d, y: Math.sin(a) * d, rx: rr, ry: rr * (0.55 + Math.random() * 0.45),
-      tilt: Math.random() * Math.PI, from: Math.random() * Math.PI * 2, len: Math.PI * (0.8 + Math.random() * 1.1),
+  // Una bola de pelusa: un núcleo de borde blando e irregular (16 bultos) y muchos pelos.
+  // Cada pelo se dobla como un muelle (b, con velocidad bv), con su propia curva de reposo
+  // y su propio ritmo de vaivén. Casi todos son cortos y tupidos; unos pocos, largos.
+  const lumps = [];
+  for (let i = 0; i < 16; i++) lumps.push(0.85 + Math.random() * 0.3);
+  const hairs = [];
+  const N = 150;
+  for (let i = 0; i < N; i++) {
+    const long = Math.random() < 0.18;
+    hairs.push({
+      a: (i / N) * Math.PI * 2 + Math.random() * 0.08,
+      from: r * (0.45 + Math.random() * 0.15),
+      len: r * (long ? 0.55 + Math.random() * 0.45 : 0.2 + Math.random() * 0.3),
+      curl: (Math.random() - 0.5) * 1.1, phase: Math.random() * Math.PI * 2, b: 0, bv: 0,
     });
   }
-  const twigs = [];
-  for (let i = 0; i < 9; i++) {
-    const a = Math.random() * Math.PI * 2;
-    twigs.push([a, r * (0.75 + Math.random() * 0.15), r * (1.05 + Math.random() * 0.2)]);
-  }
+  const y = H - r;
   return {
-    x: -r * 1.4, y: H - r, vy: 0, rot: 0, r, speed: 3.2 + Math.random(), curves, twigs,
+    x: -r * 1.4, y, vy: 0, rot: 0, r, speed: 3.2 + Math.random(), lumps, hairs,
+    prevX: -r * 1.4 - 3.5, prevY: y, prevRot: 0, pvx: 3.5, pvy: 0,
     lookX: 0, lookY: 0, blinkAt: performance.now() + 1500, smile: 0, smileV: 0,
   };
 }
 
 // ¿El puntero está sobre el estepicursor?
-const weedAt = (x, y) => weed && Math.hypot(x - weed.x, y - weed.y) < weed.r * 1.1;
+const weedAt = (x, y) => weed && Math.hypot(x - weed.x, y - weed.y) < weed.r * 1.2;
 
 // Agarrarlo: mientras lo arrastras se queda contigo; al soltarlo sigue rodando.
 function grabWeed(e) {
@@ -925,31 +926,66 @@ function tumbleweed(now) {
     }
   }
 
-  // Un cuerpo negro macizo y, encima, la maraña, que gira al rodar y asoma por el borde.
+  // El núcleo: un contorno con bultos que gira al rodar, con el borde difuminado (sombra
+  // borrosa del mismo color) para que no parezca un círculo recortado.
   ctx.save();
   ctx.translate(w.x, w.y);
   ctx.fillStyle = INK;
-  ctx.beginPath();
-  ctx.arc(0, 0, w.r * 0.8, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.save();
-  ctx.rotate(w.rot);
   ctx.strokeStyle = INK;
   ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = Math.max(1.1, w.r / 32);
+  ctx.shadowColor = INK;
+  ctx.shadowBlur = w.r * 0.35;
   ctx.beginPath();
-  for (const c of w.curves) {
-    ctx.moveTo(c.x + Math.cos(c.tilt) * Math.cos(c.from) * c.rx - Math.sin(c.tilt) * Math.sin(c.from) * c.ry,
-      c.y + Math.sin(c.tilt) * Math.cos(c.from) * c.rx + Math.cos(c.tilt) * Math.sin(c.from) * c.ry);
-    ctx.ellipse(c.x, c.y, c.rx, c.ry, c.tilt, c.from, c.from + c.len);
+  const n = w.lumps.length;
+  const lump = (i) => {
+    const a = (i / n) * Math.PI * 2 + w.rot;
+    const d = w.r * 0.62 * w.lumps[i % n];
+    return [Math.cos(a) * d, Math.sin(a) * d];
+  };
+  let [px, py] = lump(n - 1);
+  let [qx, qy] = lump(0);
+  ctx.moveTo((px + qx) / 2, (py + qy) / 2);
+  for (let i = 0; i < n; i++) {
+    [px, py] = lump(i);
+    [qx, qy] = lump(i + 1);
+    ctx.quadraticCurveTo(px, py, (px + qx) / 2, (py + qy) / 2);
   }
-  for (const [a, from, to] of w.twigs) {
-    ctx.moveTo(Math.cos(a) * from, Math.sin(a) * from);
-    ctx.lineTo(Math.cos(a + 0.12) * to, Math.sin(a + 0.12) * to);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Los pelos se doblan por la inercia (se quedan atrás al acelerar, al botar o al
+  // arrastrarlo), por el giro y el aire, cuelgan un poco por la gravedad y se mecen solos.
+  const vx = w.x - w.prevX;
+  const vy = w.y - w.prevY;
+  const ax = vx - w.pvx;
+  const ay = vy - w.pvy;
+  const spin = w.rot - w.prevRot;
+  w.prevX = w.x;
+  w.prevY = w.y;
+  w.prevRot = w.rot;
+  w.pvx = vx;
+  w.pvy = vy;
+  ctx.lineWidth = Math.max(1, w.r / 30);
+  ctx.beginPath();
+  for (const h of w.hairs) {
+    const th = h.a + w.rot;
+    const tx = -Math.sin(th);
+    const ty = Math.cos(th);
+    const want = -(ax * tx + ay * ty) * 0.2 - (vx * tx + vy * ty) * 0.05 - spin * 3
+      + ty * 0.45 + Math.sin(now * 0.003 + h.phase) * 0.22;
+    h.bv = (h.bv + (want - h.b) * 0.07) * 0.88;
+    h.b = Math.max(-1.6, Math.min(1.6, h.b + h.bv));
+    const bend = h.b + h.curl;
+    const bx = Math.cos(th) * h.from;
+    const by = Math.sin(th) * h.from;
+    const mid = th + bend * 0.5;
+    const tip = th + bend * 1.6;
+    ctx.moveTo(bx, by);
+    ctx.quadraticCurveTo(bx + Math.cos(mid) * h.len * 0.55, by + Math.sin(mid) * h.len * 0.55,
+      bx + Math.cos(mid) * h.len * 0.5 + Math.cos(tip) * h.len * 0.5,
+      by + Math.sin(mid) * h.len * 0.5 + Math.sin(tip) * h.len * 0.5);
   }
   ctx.stroke();
-  ctx.restore();
 
   // La cara de los vertikis (siempre derecha): ojos que miran al puntero y parpadean, y una
   // sonrisa que crece con el ratón encima. En blanco, sobre el cuerpo negro.
