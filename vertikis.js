@@ -856,7 +856,8 @@ let weedNextAt = 0;
 let weedGrab = null;
 
 function makeWeed() {
-  const r = Math.max(26, Math.min(56, Math.min(W, H) * 0.07));
+  // Cada vez con un tamaño distinto: de pelusilla a pelusa.
+  const r = Math.max(14, Math.min(46, Math.min(W, H) * 0.05)) * (0.55 + Math.random() * 0.6);
   // Una bola de pelusa: un núcleo de borde blando e irregular (16 bultos) y muchos pelos.
   // Cada pelo se dobla como un muelle (b, con velocidad bv), con su propia curva de reposo
   // y su propio ritmo de vaivén. Casi todos son cortos y tupidos; unos pocos, largos.
@@ -865,11 +866,11 @@ function makeWeed() {
   const hairs = [];
   const N = 150;
   for (let i = 0; i < N; i++) {
-    const long = Math.random() < 0.18;
+    const long = Math.random() < 0.1;
     hairs.push({
       a: (i / N) * Math.PI * 2 + Math.random() * 0.08,
       from: r * (0.45 + Math.random() * 0.15),
-      len: r * (long ? 0.55 + Math.random() * 0.45 : 0.2 + Math.random() * 0.3),
+      len: r * (long ? 0.45 + Math.random() * 0.35 : 0.2 + Math.random() * 0.3),
       curl: (Math.random() - 0.5) * 1.1, phase: Math.random() * Math.PI * 2, b: 0, bv: 0,
     });
   }
@@ -965,7 +966,7 @@ function tumbleweed(now) {
   w.prevRot = w.rot;
   w.pvx = vx;
   w.pvy = vy;
-  ctx.lineWidth = Math.max(1, w.r / 30);
+  ctx.lineWidth = Math.max(0.8, w.r / 32);
   ctx.beginPath();
   for (const h of w.hairs) {
     const th = h.a + w.rot;
@@ -989,7 +990,7 @@ function tumbleweed(now) {
 
   // La cara de los vertikis (siempre derecha): ojos que miran al puntero y parpadean, y una
   // sonrisa que crece con el ratón encima. En blanco, sobre el cuerpo negro.
-  const s = w.r * 1.15;
+  const s = w.r * 0.7;
   let lx = 0;
   let ly = 0;
   if (pointerSeen) {
@@ -1004,7 +1005,7 @@ function tumbleweed(now) {
   w.smileV = (w.smileV + (want - w.smile) * 0.22) * 0.68;
   w.smile += w.smileV;
 
-  const eye = Math.max(1, s * 0.036);
+  const eye = Math.max(0.9, s * 0.04);
   const t = (now - w.blinkAt) / 130;
   const open = t >= 0 && t <= 1 ? Math.abs(1 - 2 * t) : 1;
   const k = w.smile;
