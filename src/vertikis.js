@@ -317,6 +317,10 @@ function fitShape(c) {
 //<<
 
 function step() {
+  //es@17 En el modo yugop flotan: menos gravedad y más rigidez (ver YUGOP).
+  //en@17 In yugop mode they float: less gravity and more stiffness (see YUGOP).
+  const G = yugop ? GRAVITY * YUGOP.gravity : GRAVITY; // @17
+  const K = yugop ? YUGOP.stiffness : STIFFNESS; // @17
   for (const c of cells) {
     //es Paso 4 · Inercia con fricción, más la gravedad (integración de Verlet: la velocidad
     //es es la diferencia entre la posición actual y la anterior).
@@ -333,8 +337,10 @@ function step() {
       c.py[i] = c.y[i];
       c.x[i] += vx; // @4-15
       c.y[i] += vy + GRAVITY; // @4-15
-      c.x[i] += vx + GRAVITY * gravX; // @16
-      c.y[i] += vy + GRAVITY * gravY; // @16
+      c.x[i] += vx + GRAVITY * gravX; // @16-16
+      c.y[i] += vy + GRAVITY * gravY; // @16-16
+      c.x[i] += vx + G * gravX; // @17
+      c.y[i] += vy + G * gravY; // @17
     }
 
     //>> 11
@@ -371,8 +377,10 @@ function step() {
       //en Where this point «should» be.
       const gx = c.cx + qx * cos - qy * sin;
       const gy = c.cy + qx * sin + qy * cos;
-      c.x[i] += (gx - c.x[i]) * STIFFNESS;
-      c.y[i] += (gy - c.y[i]) * STIFFNESS;
+      c.x[i] += (gx - c.x[i]) * STIFFNESS; // @6-16
+      c.y[i] += (gy - c.y[i]) * STIFFNESS; // @6-16
+      c.x[i] += (gx - c.x[i]) * K; // @17
+      c.y[i] += (gy - c.y[i]) * K; // @17
     }
     //<<
   }
@@ -661,6 +669,7 @@ function frame() {
   updateHover(); // @11
   updateGravity(); // @16
   const now = performance.now(); // @12
+  if (yugop) yugopLife(now); // @17
 
   //>> 12
   for (const c of cells) {
@@ -1178,10 +1187,17 @@ window.vertikis = {
     if (name === undefined) return currentMode();
     if (!MODES.includes(name)) return `? ${MODES.join(' · ')}`;
     const wasPixel = !!pixel;
+    const wasYugop = yugop;
     pixel = name === 'pixel' ? pixelSize() : 0;
     blueprint = name === 'blueprint';
     yugop = name === 'yugop';
     riso = name === 'riso';
+    //es Al entrar en yugop se apunta cuántos hay (alrededor de ese número aparecen y
+    //es desaparecen); al salir, los que estaban desapareciendo se van del todo.
+    //en Entering yugop notes how many there are (they appear and vanish around that number);
+    //en leaving, the ones that were vanishing go for good.
+    if (yugop && !wasYugop) yugopStart();
+    if (!yugop) cells = cells.filter((c) => !c.vanishing);
     ascii = name === 'ascii';
     if (pixel) loadPixelFonts();
     document.documentElement.classList.toggle('is-pixel', !!pixel);
@@ -1636,6 +1652,61 @@ function blueprintNotes() {
 //en =========================================================================================
 
 let yugop = false;
+//es En el modo yugop flotan, redondos y casi sin aplastarse, como en el original: sin
+//es gravedad (con un poco, acaban todos amontonados abajo) y la rigidez casi al doble. Y cada
+//es pocos segundos uno desaparece (se encoge hasta nada) o aparece otro en un hueco (crece
+//es desde nada), en silencio: así, poco a poco, se reparten por toda la pantalla.
+//en In yugop mode they float, round and barely squashing, as in the original: no gravity
+//en (with even a little, they all end up piled at the bottom) and almost twice the stiffness.
+//en And every few seconds one vanishes (shrinks to nothing) or another appears in a gap
+//en (grows from nothing), silently: little by little, they spread across the whole screen.
+const YUGOP = { gravity: 0, stiffness: 0.8, every: [1800, 4200] };
+let yugopBase = 0;
+let yugopNextAt = 0;
+
+function yugopStart() {
+  yugopBase = Math.max(4, cells.length);
+  yugopNextAt = performance.now() + 1500;
+}
+
+function yugopLife(now) {
+  //es Los que ya se han encogido del todo, fuera.
+  //en The ones that have shrunk all the way, out.
+  if (cells.some((c) => c.vanishing && c.r < 1.5)) {
+    cells = cells.filter((c) => !(c.vanishing && c.r < 1.5));
+    if (hovered && !cells.includes(hovered)) hovered = null;
+  }
+  if (now < yugopNextAt) return;
+  yugopNextAt = now + YUGOP.every[0] + Math.random() * (YUGOP.every[1] - YUGOP.every[0]);
+  //es Por debajo de los que había, más probable que aparezca; por encima, que desaparezca.
+  //en Below the starting count, appearing is likelier; above it, vanishing.
+  const alive = cells.filter((c) => !c.vanishing);
+  const vanish = Math.random() < (alive.length > yugopBase ? 0.75 : alive.length < yugopBase ? 0.25 : 0.5);
+  if (vanish) {
+    const pick = alive.filter((c) => c !== grabbed);
+    if (!pick.length) return;
+    const c = pick[Math.floor(Math.random() * pick.length)];
+    c.vanishing = true;
+    c.target = 0.5;
+    c.rest = 0.5;
+    return;
+  }
+  //es Aparecer: un sitio libre al azar (unos cuantos intentos), y crece desde casi nada.
+  //en Appearing: a free spot at random (a few tries), and it grows from almost nothing.
+  const unit = Math.min(W, H);
+  for (let tries = 0; tries < 30; tries++) {
+    const r = unit * (0.09 + Math.random() ** 1.3 * 0.12);
+    const x = r + Math.random() * (W - r * 2);
+    const y = r + Math.random() * (H - r * 2);
+    if (cells.some((k) => Math.hypot(k.cx - x, k.cy - y) < (k.r + r) * 0.9)) continue;
+    const c = makeCell(x, y, r * 0.05);
+    c.target = r;
+    c.rest = r;
+    cells.push(c);
+    return;
+  }
+}
+
 
 function yugopCrosses(c) {
   //es El ecuador: la línea que pasa por el centro con el giro del cuerpo (desde cómo nació,

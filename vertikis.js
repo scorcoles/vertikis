@@ -201,6 +201,9 @@ function fitShape(c) {
 }
 
 function step() {
+  // En el modo yugop flotan: menos gravedad y más rigidez (ver YUGOP).
+  const G = yugop ? GRAVITY * YUGOP.gravity : GRAVITY;
+  const K = yugop ? YUGOP.stiffness : STIFFNESS;
   for (const c of cells) {
     // Paso 4 · Inercia con fricción, más la gravedad (integración de Verlet: la velocidad
     // es la diferencia entre la posición actual y la anterior).
@@ -211,8 +214,8 @@ function step() {
       const vy = (c.y[i] - c.py[i]) * f;
       c.px[i] = c.x[i];
       c.py[i] = c.y[i];
-      c.x[i] += vx + GRAVITY * gravX;
-      c.y[i] += vy + GRAVITY * gravY;
+      c.x[i] += vx + G * gravX;
+      c.y[i] += vy + G * gravY;
     }
 
     // Paso 11 · Arrastre: todo el vertiki se acerca al puntero. La posición anterior se
@@ -239,8 +242,8 @@ function step() {
       // Dónde «debería» estar este punto.
       const gx = c.cx + qx * cos - qy * sin;
       const gy = c.cy + qx * sin + qy * cos;
-      c.x[i] += (gx - c.x[i]) * STIFFNESS;
-      c.y[i] += (gy - c.y[i]) * STIFFNESS;
+      c.x[i] += (gx - c.x[i]) * K;
+      c.y[i] += (gy - c.y[i]) * K;
     }
   }
 
@@ -460,6 +463,7 @@ function frame() {
   updateHover();
   updateGravity();
   const now = performance.now();
+  if (yugop) yugopLife(now);
 
   for (const c of cells) {
     // Paso 12 · La boca se abre o se cierra con un muelle (pequeño rebote, ~0,3 s).
@@ -870,10 +874,15 @@ window.vertikis = {
     if (name === undefined) return currentMode();
     if (!MODES.includes(name)) return `? ${MODES.join(' · ')}`;
     const wasPixel = !!pixel;
+    const wasYugop = yugop;
     pixel = name === 'pixel' ? pixelSize() : 0;
     blueprint = name === 'blueprint';
     yugop = name === 'yugop';
     riso = name === 'riso';
+    // Al entrar en yugop se apunta cuántos hay (alrededor de ese número aparecen y
+    // desaparecen); al salir, los que estaban desapareciendo se van del todo.
+    if (yugop && !wasYugop) yugopStart();
+    if (!yugop) cells = cells.filter((c) => !c.vanishing);
     ascii = name === 'ascii';
     if (pixel) loadPixelFonts();
     document.documentElement.classList.toggle('is-pixel', !!pixel);
@@ -1272,6 +1281,53 @@ function blueprintNotes() {
 // =========================================================================================
 
 let yugop = false;
+// En el modo yugop flotan, redondos y casi sin aplastarse, como en el original: sin
+// gravedad (con un poco, acaban todos amontonados abajo) y la rigidez casi al doble. Y cada
+// pocos segundos uno desaparece (se encoge hasta nada) o aparece otro en un hueco (crece
+// desde nada), en silencio: así, poco a poco, se reparten por toda la pantalla.
+const YUGOP = { gravity: 0, stiffness: 0.8, every: [1800, 4200] };
+let yugopBase = 0;
+let yugopNextAt = 0;
+
+function yugopStart() {
+  yugopBase = Math.max(4, cells.length);
+  yugopNextAt = performance.now() + 1500;
+}
+
+function yugopLife(now) {
+  // Los que ya se han encogido del todo, fuera.
+  if (cells.some((c) => c.vanishing && c.r < 1.5)) {
+    cells = cells.filter((c) => !(c.vanishing && c.r < 1.5));
+    if (hovered && !cells.includes(hovered)) hovered = null;
+  }
+  if (now < yugopNextAt) return;
+  yugopNextAt = now + YUGOP.every[0] + Math.random() * (YUGOP.every[1] - YUGOP.every[0]);
+  // Por debajo de los que había, más probable que aparezca; por encima, que desaparezca.
+  const alive = cells.filter((c) => !c.vanishing);
+  const vanish = Math.random() < (alive.length > yugopBase ? 0.75 : alive.length < yugopBase ? 0.25 : 0.5);
+  if (vanish) {
+    const pick = alive.filter((c) => c !== grabbed);
+    if (!pick.length) return;
+    const c = pick[Math.floor(Math.random() * pick.length)];
+    c.vanishing = true;
+    c.target = 0.5;
+    c.rest = 0.5;
+    return;
+  }
+  // Aparecer: un sitio libre al azar (unos cuantos intentos), y crece desde casi nada.
+  const unit = Math.min(W, H);
+  for (let tries = 0; tries < 30; tries++) {
+    const r = unit * (0.09 + Math.random() ** 1.3 * 0.12);
+    const x = r + Math.random() * (W - r * 2);
+    const y = r + Math.random() * (H - r * 2);
+    if (cells.some((k) => Math.hypot(k.cx - x, k.cy - y) < (k.r + r) * 0.9)) continue;
+    const c = makeCell(x, y, r * 0.05);
+    c.target = r;
+    c.rest = r;
+    cells.push(c);
+    return;
+  }
+}
 
 function yugopCrosses(c) {
   // El ecuador: la línea que pasa por el centro con el giro del cuerpo (desde cómo nació,
