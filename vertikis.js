@@ -1314,10 +1314,10 @@ function stiffness(c) {
   return Math.min(0.85, base + 0.18 * small);
 }
 
-// Tamaño al azar, en fracción del lado corto de la pantalla. Normal: del 7 % al 22 %. En
-// yugop, más contraste, como en el original: del 5 % al 24 %. La potencia hace que los
+// Tamaño al azar, en fracción del lado corto de la pantalla. Normal: del 9 % al 22 %. En
+// yugop, más contraste, como en el original: del 7 % al 24 %. La potencia hace que los
 // pequeños y medianos sean lo normal y los grandotes, pocos (cuanto más alta, menos).
-const randomSize = () => (yugop ? 0.05 + Math.random() ** 2.2 * 0.19 : 0.07 + Math.random() ** 2 * 0.15);
+const randomSize = () => (yugop ? 0.07 + Math.random() ** 2.2 * 0.17 : 0.09 + Math.random() ** 2 * 0.13);
 
 // Cuánto se ovala la forma de reposo: en yugop, menos de la mitad (casi redondos, pero
 // no círculos perfectos).
