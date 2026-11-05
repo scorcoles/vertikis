@@ -161,20 +161,6 @@ canvas.is-dragging {
   color: #f3efe6;
 }
 
-/* ASCII (#ascii): fondo de terminal y letras claras. */
-.is-ascii body {
-  background: #111;
-}
-
-.is-ascii .credit {
-  color: #d8d8d8;
-}
-
-.is-ascii .credit__tag {
-  background: #d8d8d8;
-  color: #111;
-}
-
 /* En riso el pie va sobre una tira de papel: sobre las tintas no se leía. */
 .is-riso .credit {
   left: 6px;
@@ -195,5 +181,27 @@ canvas.is-dragging {
 
   .is-pixel .credit__tag {
     font-size: 11px;
+  }
+}
+
+/* En el móvil (y en pantallas táctiles), «Prev · Next» en su propia línea, con más aire
+   para el dedo; el «·» que lo separaba del resto sobra. */
+@media (max-width: 63.99rem), (pointer: coarse) {
+  .credit__modes {
+    display: block;
+    margin-top: 6px;
+  }
+
+  .credit__modes button {
+    margin: -10px 0;
+    padding: 10px 6px;
+  }
+
+  .credit__modes button:first-child {
+    margin-left: -6px;
+  }
+
+  .credit__sep:has(+ wbr + .credit__modes) {
+    display: none;
   }
 }

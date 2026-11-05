@@ -343,7 +343,6 @@ const INK = '#1b1b1b';
 
 function draw() {
   ctx.clearRect(0, 0, W, H);
-  if (ascii) return drawAscii();
   if (blueprint) blueprintPaper();
   if (riso) risoPaper();
 
@@ -883,13 +882,11 @@ window.vertikis = {
     // desaparecen); al salir, los que estaban desapareciendo se van del todo.
     if (yugop && !wasYugop) yugopStart();
     if (!yugop) cells = cells.filter((c) => !c.vanishing);
-    ascii = name === 'ascii';
     if (pixel) loadPixelFonts();
     document.documentElement.classList.toggle('is-pixel', !!pixel);
     document.documentElement.classList.toggle('is-blueprint', blueprint);
     document.documentElement.classList.toggle('is-yugop', yugop);
     document.documentElement.classList.toggle('is-riso', riso);
-    document.documentElement.classList.toggle('is-ascii', ascii);
     // El modo píxel cambia la resolución del canvas: hay que rehacerlo al entrar y al salir.
     if (wasPixel !== !!pixel) resize();
     // La dirección lleva la visualización (#pixel, #blueprint), para poder compartirla.
@@ -898,16 +895,16 @@ window.vertikis = {
     for (const el of document.querySelectorAll('[data-mode-name]')) el.textContent = name;
     const hash = name === 'normal' ? '' : `#${name}`;
     if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
-    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, blueprint: '⌗ blueprint', yugop: '+ yugop', riso: '◐ riso', ascii: '@ ascii' }[name];
+    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, blueprint: '⌗ blueprint', yugop: '+ yugop', riso: '◐ riso' }[name];
   },
 };
 
 // Las visualizaciones, en el orden en que pasa por ellas el doble clic en «vertikis».
 // Para añadir una: su nombre aquí y lo que dibuje en draw().
 // El plano va siempre el último.
-const MODES = ['normal', 'pixel', 'yugop', 'riso', 'ascii', 'blueprint'];
+const MODES = ['normal', 'pixel', 'yugop', 'riso', 'blueprint'];
 const currentMode = () =>
-  ascii ? 'ascii' : riso ? 'riso' : yugop ? 'yugop' : blueprint ? 'blueprint' : pixel ? 'pixel' : 'normal';
+  riso ? 'riso' : yugop ? 'yugop' : blueprint ? 'blueprint' : pixel ? 'pixel' : 'normal';
 
 // Al abrir una dirección con #pixel, #yugop o #blueprint (o al cambiarla a mano), se pone esa
 // visualización. Va en una microtarea: cuando el escenario ya está montado.
@@ -1451,112 +1448,6 @@ function risoGrain() {
   ctx.fillRect(0, 0, W, H);
 }
 
-// =========================================================================================
-// Extra · ASCII: el escenario hecho de letras en una rejilla de terminal. Los vertikis se
-// dibujan a escondidas en un canvas diminuto (un píxel por letra); cada píxel se convierte
-// en una letra más o menos densa según su luz (de «.» a «@»), en el color del vertiki.
-// Las caras son casillas en vídeo inverso: «o o», «-» al parpadear, «> <», «O» y «u».
-// =========================================================================================
-
-let ascii = false;
-const ASCII_BG = '#111111';
-const ASCII_FG = '#d8d8d8';
-const ASCII_RAMP = ' .:-=+*#%@';
-// Tamaño de cada casilla, en píxeles CSS.
-const ASCII_W = 9;
-const ASCII_H = 15;
-const asciiCanvas = document.createElement('canvas');
-const asciiCtx = asciiCanvas.getContext('2d', { willReadFrequently: true });
-
-function drawAscii() {
-  const cols = Math.ceil(W / ASCII_W);
-  const rows = Math.ceil(H / ASCII_H);
-  if (asciiCanvas.width !== cols || asciiCanvas.height !== rows) {
-    asciiCanvas.width = cols;
-    asciiCanvas.height = rows;
-  }
-  const o = asciiCtx;
-  o.setTransform(1, 0, 0, 1, 0, 0);
-  o.clearRect(0, 0, cols, rows);
-  o.setTransform(1 / ASCII_W, 0, 0, 1 / ASCII_H, 0, 0);
-  for (const c of cells) {
-    const g = o.createRadialGradient(c.cx - c.r * 0.35, c.cy - c.r * 0.4, c.r * 0.05, c.cx, c.cy, c.r * 1.25);
-    g.addColorStop(0, c.light);
-    g.addColorStop(0.55, c.color);
-    g.addColorStop(1, c.shade);
-    o.fillStyle = g;
-    o.beginPath();
-    o.moveTo((c.x[POINTS - 1] + c.x[0]) / 2, (c.y[POINTS - 1] + c.y[0]) / 2);
-    for (let i = 0; i < POINTS; i++) {
-      const j = (i + 1) % POINTS;
-      o.quadraticCurveTo(c.x[i], c.y[i], (c.x[i] + c.x[j]) / 2, (c.y[i] + c.y[j]) / 2);
-    }
-    o.fill();
-  }
-  for (const d of drops) {
-    o.fillStyle = d.color;
-    o.beginPath();
-    o.arc(d.x, d.y, Math.max(ASCII_W * 0.6, d.r * d.life), 0, Math.PI * 2);
-    o.fill();
-  }
-  const px = o.getImageData(0, 0, cols, rows).data;
-
-  ctx.fillStyle = ASCII_BG;
-  ctx.fillRect(0, 0, W, H);
-  ctx.font = `${ASCII_H - 2}px ui-monospace, Menlo, Consolas, monospace`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  // Cada letra en el color de su píxel, redondeado para no cambiar de color en cada letra.
-  let last = '';
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      const i = (y * cols + x) * 4;
-      if (px[i + 3] < 110) continue;
-      const r = px[i];
-      const g = px[i + 1];
-      const b = px[i + 2];
-      // Luz estirada: los colores de la paleta van de 0,3 a 0,9; así se usa toda la escala.
-      const light = Math.max(0, Math.min(1, ((0.3 * r + 0.59 * g + 0.11 * b) / 255 - 0.3) / 0.6));
-      const ch = ASCII_RAMP[1 + Math.round(light * (ASCII_RAMP.length - 2))];
-      const color = `rgb(${r & 0xf0},${g & 0xf0},${b & 0xf0})`;
-      if (color !== last) ctx.fillStyle = last = color;
-      ctx.fillText(ch, x * ASCII_W + ASCII_W / 2, y * ASCII_H + ASCII_H / 2);
-    }
-  }
-
-  // Las caras: cada rasgo cae en una casilla, que se pinta del color del vertiki con la
-  // letra en negro (vídeo inverso).
-  const now = performance.now();
-  const cell = (fx, fy, ch, color) => {
-    const cx = Math.floor(fx / ASCII_W);
-    const cy = Math.floor(fy / ASCII_H);
-    ctx.fillStyle = color;
-    ctx.fillRect(cx * ASCII_W, cy * ASCII_H, ASCII_W, ASCII_H);
-    ctx.fillStyle = ASCII_BG;
-    ctx.fillText(ch, cx * ASCII_W + ASCII_W / 2, cy * ASCII_H + ASCII_H / 2);
-  };
-  for (const c of cells) {
-    if (c.r < ASCII_W * 2) continue;
-    const s = c.r;
-    const turned = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
-    const cos = Math.cos(turned);
-    const sin = Math.sin(turned);
-    const at = (lx, ly) => [c.cx + lx * cos - ly * sin, c.cy + lx * sin + ly * cos];
-    const squint = now < c.squintUntil;
-    const surprised = !squint && now < c.surprisedUntil;
-    const t = (now - c.blinkAt) / 130;
-    const blink = t >= 0 && t <= 1;
-    const face = tint(c.color, 0.35);
-    for (const side of [-1, 1]) {
-      const eye = squint ? (side < 0 ? '>' : '<') : blink ? '-' : surprised ? 'O' : 'o';
-      cell(...at(side * s * 0.22 + c.lookX * s, -s * 0.12 + c.lookY * s), eye, face);
-    }
-    cell(...at(0, s * 0.14), surprised ? 'o' : c.smile > 0.5 ? 'U' : 'u', face);
-  }
-  ctx.textAlign = 'start';
-  ctx.textBaseline = 'alphabetic';
-}
-
 let emptySince = null;
 let weed = null;
 let weedNextAt = 0;
@@ -1638,7 +1529,7 @@ function tumbleweed(now) {
   // borrosa del mismo color) para que no parezca un círculo recortado.
   ctx.save();
   ctx.translate(w.x, w.y);
-  const ink = blueprint ? BP_LINE : ascii ? ASCII_FG : riso ? RISO_INKS[1] : pixel ? `rgb(${WEED_PX})` : INK;
+  const ink = blueprint ? BP_LINE : riso ? RISO_INKS[1] : pixel ? `rgb(${WEED_PX})` : INK;
   ctx.fillStyle = ink;
   ctx.strokeStyle = ink;
   ctx.lineCap = 'round';
@@ -1736,7 +1627,7 @@ function tumbleweed(now) {
     ctx.arc(0, centerY, R, a0, Math.PI - a0);
     ctx.stroke();
   };
-  if (!pixel) face(blueprint ? BP_PAPER : ascii ? ASCII_BG : riso ? RISO_PAPER : '#fff', 0);
+  if (!pixel) face(blueprint ? BP_PAPER : riso ? RISO_PAPER : '#fff', 0);
   ctx.restore();
   if (pixel) pixelFace(w, w.x, w.y, 0, s, false, false, '#000', now);
 }
