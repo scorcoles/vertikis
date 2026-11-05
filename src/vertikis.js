@@ -1251,6 +1251,16 @@ const stepMode = (by) => {
   const n = MODES.length;
   window.vertikis.mode(MODES[(MODES.indexOf(currentMode()) + by + n) % n]);
 };
+//es Y con el teclado: flecha izquierda, la anterior; flecha derecha, la siguiente.
+//en And with the keyboard: left arrow, the previous one; right arrow, the next.
+window.addEventListener('keydown', (e) => {
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (e.target instanceof HTMLElement && e.target.closest('input, textarea, select, [contenteditable]')) return;
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  e.preventDefault();
+  stepMode(e.key === 'ArrowLeft' ? -1 : 1);
+});
+
 for (const [sel, by] of [['[data-mode-prev]', -1], ['[data-mode-next]', 1]]) {
   for (const el of document.querySelectorAll(sel)) {
     el.style.pointerEvents = 'auto';
