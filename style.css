@@ -156,12 +156,17 @@ canvas.is-dragging {
   color: #f3efe6;
 }
 
-/* En riso el pie va sobre una tira de papel: sobre las tintas no se leía. */
-.is-riso .credit {
+/* En riso y en wire el pie va sobre una tira clara: sobre los cuerpos no se leía. */
+.is-riso .credit,
+.is-wire .credit {
   left: 6px;
   bottom: 6px;
   padding: 2px 6px 2px 2px;
   background: #f3efe6;
+}
+
+.is-wire .credit {
+  background: #eee;
 }
 
 /* En escritorio, el pie un punto más grande. */
