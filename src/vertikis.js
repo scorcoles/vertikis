@@ -327,7 +327,9 @@ function fitShape(c) {
 function step() {
   //es@17 En el modo yugop flotan: menos gravedad y más rigidez (ver YUGOP).
   //en@17 In yugop mode they float: less gravity and more stiffness (see YUGOP).
-  const G = yugop ? GRAVITY * YUGOP.gravity : GRAVITY; // @17
+  //es@17 En escritorio, la de yugop un 15 % más baja que en el móvil.
+  //en@17 On desktop, yugop's is 15 % lower than on phones.
+  const G = yugop ? GRAVITY * YUGOP.gravity * (touchDevice ? 1 : 0.85) : GRAVITY; // @17
   for (const c of cells) {
     //es Paso 4 · Inercia con fricción, más la gravedad (integración de Verlet: la velocidad
     //es es la diferencia entre la posición actual y la anterior).
