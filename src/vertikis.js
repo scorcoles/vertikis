@@ -1674,11 +1674,11 @@ let yugop = false;
 //es En el modo yugop flotan, redondos y casi sin aplastarse, como en el original: la
 //es gravedad a un 5 % (caen muy despacio) y la rigidez casi al doble. Y cada pocos segundos
 //es uno desaparece (se encoge hasta nada, con un «fiu») o aparece otro en un hueco (crece
-//es desde nada): como los nuevos nacen donde hay sitio, se reparten por toda la pantalla.
+//es desde nada, con un «tic tic»): como los nuevos nacen donde hay sitio, se reparten por toda la pantalla.
 //en In yugop mode they float, round and barely squashing, as in the original: gravity at
 //en 5 % (they sink very slowly) and almost twice the stiffness. And every few seconds one
 //en vanishes (shrinks to nothing, with a «fwip») or another appears in a gap (grows from
-//en nothing): since new ones are born where there's room, they spread across the screen.
+//en nothing, with a «tick tick»): since new ones are born where there's room, they spread across the screen.
 const YUGOP = { gravity: 0.05, stiffness: 0.8, every: [1800, 4200] };
 let yugopBase = 0;
 let yugopNextAt = 0;
@@ -1725,6 +1725,12 @@ function yugopLife(now) {
     c.target = r;
     c.rest = r;
     cells.push(c);
+    //es Un «tic tic»: dos golpecitos agudos y secos, el segundo un poco más alto.
+    //en A «tick tick»: two short, dry, high taps, the second slightly higher.
+    if (unlocked) {
+      tone(1900, 1500, 0.03, 0.09, 'square');
+      setTimeout(() => tone(2300, 1800, 0.03, 0.08, 'square'), 85);
+    }
     return;
   }
 }

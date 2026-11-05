@@ -1301,7 +1301,7 @@ let yugop = false;
 // En el modo yugop flotan, redondos y casi sin aplastarse, como en el original: la
 // gravedad a un 5 % (caen muy despacio) y la rigidez casi al doble. Y cada pocos segundos
 // uno desaparece (se encoge hasta nada, con un «fiu») o aparece otro en un hueco (crece
-// desde nada): como los nuevos nacen donde hay sitio, se reparten por toda la pantalla.
+// desde nada, con un «tic tic»): como los nuevos nacen donde hay sitio, se reparten por toda la pantalla.
 const YUGOP = { gravity: 0.05, stiffness: 0.8, every: [1800, 4200] };
 let yugopBase = 0;
 let yugopNextAt = 0;
@@ -1344,6 +1344,11 @@ function yugopLife(now) {
     c.target = r;
     c.rest = r;
     cells.push(c);
+    // Un «tic tic»: dos golpecitos agudos y secos, el segundo un poco más alto.
+    if (unlocked) {
+      tone(1900, 1500, 0.03, 0.09, 'square');
+      setTimeout(() => tone(2300, 1800, 0.03, 0.08, 'square'), 85);
+    }
     return;
   }
 }
