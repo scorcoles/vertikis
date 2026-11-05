@@ -507,11 +507,11 @@ const INK = '#1b1b1b'; // @12
 
 function draw() {
   ctx.clearRect(0, 0, W, H);
-  if (blueprint) blueprintPaper(); // @17
+  if (wire) wirePaper(); // @17
   if (riso) risoPaper(); // @17
 
   for (const c of cells) {
-    if (blueprint) { wireBody(c); continue; } // @17
+    if (wire) { wireBody(c); continue; } // @17
     if (riso) { risoBody(c); continue; } // @17
     //es@3-9 Un gris neutro, hasta que lleguen los colores en el paso 10.
     //en@3-9 A neutral grey, until colours arrive in step 10.
@@ -561,7 +561,7 @@ function draw() {
   const now = performance.now();
   ctx.fillStyle = INK;
   ctx.strokeStyle = INK;
-  if (blueprint) ctx.fillStyle = ctx.strokeStyle = BP_LINE; // @17
+  if (wire) ctx.fillStyle = ctx.strokeStyle = WIRE_LINE; // @17
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   for (const c of cells) {
@@ -643,7 +643,7 @@ function draw() {
   //en Step 13 · Droplets from burst balloons.
   for (const d of drops) {
     ctx.fillStyle = d.color;
-    if (blueprint) ctx.fillStyle = BP_LINE; // @17
+    if (wire) ctx.fillStyle = WIRE_LINE; // @17
     if (yugop) ctx.fillStyle = '#000'; // @17
     if (riso) ctx.fillStyle = RISO_INKS[risoInk(d.color) % 2]; // @17
     ctx.beginPath();
@@ -651,7 +651,7 @@ function draw() {
     ctx.fill();
   }
   //<<
-  if (blueprint) blueprintNotes(); // @17
+  if (wire) wireNotes(); // @17
   if (riso) risoGrain(); // @17
 }
 //<<
@@ -1173,10 +1173,10 @@ window.vertikis = {
   pixelate(on = !pixel) {
     return this.mode(on ? 'pixel' : 'normal');
   },
-  //es vertikis.blueprint(): el plano, en alambre (otra vez, o blueprint(false), para volver).
-  //en vertikis.blueprint(): the blueprint, in wireframe (again, or blueprint(false), to go back).
-  blueprint(on = !blueprint) {
-    return this.mode(on ? 'blueprint' : 'normal');
+  //es vertikis.wire(): en alambre (otra vez, o wire(false), para volver).
+  //en vertikis.wire(): in wireframe (again, or wire(false), to go back).
+  wire(on = !wire) {
+    return this.mode(on ? 'wire' : 'normal');
   },
   //es vertikis.mode('pixel'): cambia de visualización por su nombre (ver MODES). Sin
   //es nombre, dice cuál está puesta.
@@ -1188,7 +1188,7 @@ window.vertikis = {
     const wasPixel = !!pixel;
     const wasYugop = yugop;
     pixel = name === 'pixel' ? pixelSize() : 0;
-    blueprint = name === 'blueprint';
+    wire = name === 'wire';
     yugop = name === 'yugop';
     riso = name === 'riso';
     //es Al entrar en yugop se apunta cuántos hay (alrededor de ese número aparecen y
@@ -1199,22 +1199,22 @@ window.vertikis = {
     if (!yugop) cells = cells.filter((c) => !c.vanishing);
     if (pixel) loadPixelFonts();
     document.documentElement.classList.toggle('is-pixel', !!pixel);
-    document.documentElement.classList.toggle('is-blueprint', blueprint);
+    document.documentElement.classList.toggle('is-wire', wire);
     document.documentElement.classList.toggle('is-yugop', yugop);
     document.documentElement.classList.toggle('is-riso', riso);
     //es El modo píxel cambia la resolución del canvas: hay que rehacerlo al entrar y al salir.
     //en Pixel mode changes the canvas resolution: it has to be redone going in and out.
     if (wasPixel !== !!pixel) resize();
-    //es La dirección lleva la visualización (#pixel, #blueprint), para poder compartirla.
+    //es La dirección lleva la visualización (#pixel, #wire…), para poder compartirla.
     //es Sin historial: cambiar de modo no llena el botón «atrás».
-    //en The address carries the visualisation (#pixel, #blueprint), so it can be shared.
+    //en The address carries the visualisation (#pixel, #wire…), so it can be shared.
     //en Without history: switching modes doesn't fill up the «back» button.
     //es Si la página tiene dónde ([data-mode-name]), el nombre de la que está puesta.
     //en If the page has a place for it ([data-mode-name]), the name of the one that's on.
     for (const el of document.querySelectorAll('[data-mode-name]')) el.textContent = name;
     const hash = name === 'normal' ? '' : `#${name}`;
     if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
-    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, blueprint: '⌗ blueprint', yugop: '+ yugop', riso: '◐ riso' }[name];
+    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, wire: '⌗ wire', yugop: '+ yugop', riso: '◐ riso' }[name];
   },
 };
 
@@ -1222,18 +1222,21 @@ window.vertikis = {
 //es Para añadir una: su nombre aquí y lo que dibuje en draw().
 //en The visualisations, in the order the double-click on «vertikis» goes through them. To
 //en add one: its name here and whatever it draws in draw().
-//es El plano va siempre el último.
-//en The blueprint always goes last.
-const MODES = ['normal', 'pixel', 'yugop', 'riso', 'blueprint'];
+//es «wire» va siempre el último.
+//en «wire» always goes last.
+const MODES = ['normal', 'pixel', 'yugop', 'riso', 'wire'];
 const currentMode = () =>
-  riso ? 'riso' : yugop ? 'yugop' : blueprint ? 'blueprint' : pixel ? 'pixel' : 'normal';
+  riso ? 'riso' : yugop ? 'yugop' : wire ? 'wire' : pixel ? 'pixel' : 'normal';
 
-//es Al abrir una dirección con #pixel, #yugop o #blueprint (o al cambiarla a mano), se pone esa
+//es Al abrir una dirección con #pixel, #yugop, #riso o #wire (o al cambiarla a mano), se pone esa
 //es visualización. Va en una microtarea: cuando el escenario ya está montado.
-//en Opening an address with #pixel, #yugop or #blueprint (or changing it by hand) switches to that
+//en Opening an address with #pixel, #yugop, #riso or #wire (or changing it by hand) switches to that
 //en visualisation. It runs in a microtask: once the stage is set up.
 const modeFromHash = () => {
-  const name = decodeURIComponent(location.hash.slice(1));
+  //es «blueprint» era el nombre antiguo de «wire»: los enlaces de antes siguen funcionando.
+  //en «blueprint» was the old name for «wire»: older links keep working.
+  const asked = decodeURIComponent(location.hash.slice(1));
+  const name = asked === 'blueprint' ? 'wire' : asked;
   window.vertikis.mode(MODES.includes(name) ? name : 'normal');
 };
 queueMicrotask(modeFromHash);
@@ -1448,9 +1451,9 @@ function loadPixelFonts() {
 }
 
 //es Doble clic (o doble toque) en la etiqueta «vertikis» del pie: de normal a píxel, de
-//es píxel al plano y del plano otra vez a normal.
+//es una a otra por la lista (MODES) y del último otra vez a normal.
 //en Double-click (or double-tap) on the «vertikis» tag in the footer: from normal to pixel,
-//en from pixel to the blueprint, and from the blueprint back to normal.
+//en one to the next along the list (MODES), and from the last back to normal.
 const creditTag = document.querySelector('.credit__tag');
 if (creditTag) {
   creditTag.style.pointerEvents = 'auto';
@@ -1475,46 +1478,32 @@ if (creditTag) {
 }
 
 //es =========================================================================================
-//es Extra · El plano («blueprint»): el mismo escenario dibujado como un plano técnico, en
-//es alambre sobre papel azul con cuadrícula. Se ve la física por dentro: los puntos del
-//es anillo, la forma de reposo a la que vuelven (discontinua), los muelles que tiran de cada
-//es punto hacia ella, el centro, el giro, el radio y los contactos entre vertikis.
+//es Extra · En alambre («wire»): el mismo escenario dibujado como un esquema técnico, en
+//es líneas gris oscuro sobre gris clarito. Se ve la física por dentro: los puntos del anillo,
+//es la forma de reposo a la que vuelven (discontinua), los muelles que tiran de cada punto
+//es hacia ella, el centro, el giro, el radio y los contactos entre vertikis.
 //es =========================================================================================
 //en =========================================================================================
-//en Extra · The blueprint: the same stage drawn as a technical drawing, in wireframe on blue
-//en paper with a grid. You see the physics from the inside: the ring's points, the resting
-//en shape they return to (dashed), the springs pulling each point towards it, the centre,
-//en the rotation, the radius and the contacts between vertikis.
+//en Extra · Wireframe («wire»): the same stage drawn as a technical diagram, in dark grey lines
+//en on light grey. You see the physics from the inside: the ring's points, the resting shape
+//en they return to (dashed), the springs pulling each point towards it, the centre, the
+//en rotation, the radius and the contacts between vertikis.
 //en =========================================================================================
 
-let blueprint = false;
-const BP_PAPER = '#1d4a86';
-const BP_LINE = '#eaf2ff';
-const bpInk = (a) => `rgba(234, 242, 255, ${a})`;
-const BP_FONT = '10px ui-monospace, Menlo, Consolas, monospace';
+let wire = false;
+const WIRE_PAPER = '#eeeeee';
+const WIRE_LINE = '#333333';
+const wireInk = (a) => `rgba(51, 51, 51, ${a})`;
+const WIRE_FONT = '10px ui-monospace, Menlo, Consolas, monospace';
 
-//es El papel: azul, cuadrícula fina cada 16 px y gruesa cada 80, y los contactos (líneas
-//es discontinuas entre los centros de los vertikis que se tocan), por debajo de todo.
-//en The paper: blue, a fine grid every 16 px and a heavier one every 80, and the contacts
-//en (dashed lines between the centres of vertikis that touch), underneath everything.
-function blueprintPaper() {
-  ctx.fillStyle = BP_PAPER;
+//es El papel, gris clarito y liso, y los contactos (líneas discontinuas entre los centros
+//es de los vertikis que se tocan), por debajo de todo.
+//en The paper, plain light grey, and the contacts (dashed lines between the centres of
+//en vertikis that touch), underneath everything.
+function wirePaper() {
+  ctx.fillStyle = WIRE_PAPER;
   ctx.fillRect(0, 0, W, H);
-  ctx.lineWidth = 1;
-  for (const [gap, a] of [[16, 0.07], [80, 0.15]]) {
-    ctx.strokeStyle = bpInk(a);
-    ctx.beginPath();
-    for (let x = 0.5; x < W; x += gap) {
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, H);
-    }
-    for (let y = 0.5; y < H; y += gap) {
-      ctx.moveTo(0, y);
-      ctx.lineTo(W, y);
-    }
-    ctx.stroke();
-  }
-  ctx.strokeStyle = bpInk(0.35);
+  ctx.strokeStyle = wireInk(0.35);
   ctx.setLineDash([2, 4]);
   ctx.beginPath();
   for (let a = 0; a < cells.length; a++) {
@@ -1549,7 +1538,7 @@ function wireBody(c) {
   ctx.lineWidth = 1;
   //es La forma de reposo, discontinua.
   //en The resting shape, dashed.
-  ctx.strokeStyle = bpInk(0.4);
+  ctx.strokeStyle = wireInk(0.4);
   ctx.setLineDash([3, 4]);
   ctx.beginPath();
   for (let i = 0; i < POINTS; i++) ctx.lineTo(gx[i], gy[i]);
@@ -1561,7 +1550,7 @@ function wireBody(c) {
   //es más largos.
   //en The springs: from each point to its spot on the resting shape. The more squashed, the
   //en longer they are.
-  ctx.strokeStyle = bpInk(0.55);
+  ctx.strokeStyle = wireInk(0.55);
   ctx.beginPath();
   for (let i = 0; i < POINTS; i++) {
     ctx.moveTo(c.x[i], c.y[i]);
@@ -1571,7 +1560,7 @@ function wireBody(c) {
 
   //es El contorno de verdad, con las mismas curvas que el dibujo normal.
   //en The real outline, with the same curves as the normal drawing.
-  ctx.strokeStyle = BP_LINE;
+  ctx.strokeStyle = WIRE_LINE;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo((c.x[POINTS - 1] + c.x[0]) / 2, (c.y[POINTS - 1] + c.y[0]) / 2);
@@ -1584,7 +1573,7 @@ function wireBody(c) {
   //es Los 28 puntos: nudos huecos.
   //en The 28 points: hollow nodes.
   ctx.lineWidth = 1;
-  ctx.fillStyle = BP_PAPER;
+  ctx.fillStyle = WIRE_PAPER;
   for (let i = 0; i < POINTS; i++) {
     ctx.beginPath();
     ctx.arc(c.x[i], c.y[i], 2, 0, Math.PI * 2);
@@ -1605,7 +1594,7 @@ function wireBody(c) {
   ctx.stroke();
   const ex = c.cx + Math.cos(c.angle) * c.r;
   const ey = c.cy + Math.sin(c.angle) * c.r;
-  ctx.strokeStyle = bpInk(0.7);
+  ctx.strokeStyle = wireInk(0.7);
   ctx.beginPath();
   ctx.moveTo(c.cx, c.cy);
   ctx.lineTo(ex, ey);
@@ -1618,18 +1607,18 @@ function wireBody(c) {
   //en The label: radius and rotation, below the face (it doesn't fit on very small ones).
   if (c.r < 34) return;
   const deg = Math.round((Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 180) / Math.PI);
-  ctx.font = BP_FONT;
+  ctx.font = WIRE_FONT;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = bpInk(0.75);
+  ctx.fillStyle = wireInk(0.75);
   ctx.fillText(`r ${Math.round(c.r)} · ${deg}°`, c.cx, c.cy + c.r * 0.42);
 }
 
-//es El cajetín del plano, abajo a la derecha, por encima del pie: qué es y con qué números
+//es El cajetín, abajo a la derecha, por encima del pie: qué es y con qué números
 //es funciona ahora mismo. En pantallas estrechas no cabe y no se dibuja.
-//en The blueprint's title block, bottom right, above the footer: what it is and the numbers
+//en The title block, bottom right, above the footer: what it is and the numbers
 //en it's running with right now. On narrow screens it doesn't fit and isn't drawn.
-function blueprintNotes() {
+function wireNotes() {
   if (W < 640) return;
   const rows = [
     'VERTIKIS · SOFT BODIES',
@@ -1642,23 +1631,23 @@ function blueprintNotes() {
   const row = 18;
   const x = W - w - 16;
   const y = H - rows.length * row - 44;
-  ctx.fillStyle = BP_PAPER;
+  ctx.fillStyle = WIRE_PAPER;
   ctx.fillRect(x, y, w, rows.length * row);
-  ctx.strokeStyle = BP_LINE;
+  ctx.strokeStyle = WIRE_LINE;
   ctx.lineWidth = 1;
   ctx.strokeRect(x + 0.5, y + 0.5, w, rows.length * row);
-  ctx.font = BP_FONT;
+  ctx.font = WIRE_FONT;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   rows.forEach((text, n) => {
     if (n) {
-      ctx.strokeStyle = bpInk(0.4);
+      ctx.strokeStyle = wireInk(0.4);
       ctx.beginPath();
       ctx.moveTo(x, y + n * row + 0.5);
       ctx.lineTo(x + w, y + n * row + 0.5);
       ctx.stroke();
     }
-    ctx.fillStyle = n === 0 ? BP_LINE : bpInk(0.75);
+    ctx.fillStyle = n === 0 ? WIRE_LINE : wireInk(0.75);
     ctx.fillText(text, x + 10, y + n * row + row / 2 + 0.5);
   });
 }
@@ -1944,7 +1933,7 @@ function tumbleweed(now) {
   //en the same colour) so it doesn't look like a cut-out circle.
   ctx.save();
   ctx.translate(w.x, w.y);
-  const ink = blueprint ? BP_LINE : riso ? RISO_INKS[1] : pixel ? `rgb(${WEED_PX})` : INK;
+  const ink = wire ? WIRE_LINE : riso ? RISO_INKS[1] : pixel ? `rgb(${WEED_PX})` : INK;
   ctx.fillStyle = ink;
   ctx.strokeStyle = ink;
   ctx.lineCap = 'round';
@@ -2046,7 +2035,7 @@ function tumbleweed(now) {
     ctx.arc(0, centerY, R, a0, Math.PI - a0);
     ctx.stroke();
   };
-  if (!pixel) face(blueprint ? BP_PAPER : riso ? RISO_PAPER : '#fff', 0);
+  if (!pixel) face(wire ? WIRE_PAPER : riso ? RISO_PAPER : '#fff', 0);
   ctx.restore();
   if (pixel) pixelFace(w, w.x, w.y, 0, s, false, false, '#000', now);
 }

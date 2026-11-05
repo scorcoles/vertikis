@@ -119,19 +119,18 @@ canvas.is-dragging {
   color: #fff;
 }
 
-/* El plano (doble clic en «vertikis» desde el modo píxel, o vertikis.blueprint() por
-   consola): papel azul y letras claras. */
-.is-blueprint body {
-  background: #1d4a86;
+/* En alambre (#wire, el último de la lista): gris clarito y líneas en gris oscuro. */
+.is-wire body {
+  background: #eee;
 }
 
-.is-blueprint .credit {
-  color: #eaf2ff;
+.is-wire .credit {
+  color: #333;
 }
 
-.is-blueprint .credit__tag {
-  background: #eaf2ff;
-  color: #1d4a86;
+.is-wire .credit__tag {
+  background: #333;
+  color: #eee;
 }
 
 /* Modo yugop (vertikis.mode('yugop') o #yugop): cuerpos negros sobre blanco, como la home de

@@ -343,11 +343,11 @@ const INK = '#1b1b1b';
 
 function draw() {
   ctx.clearRect(0, 0, W, H);
-  if (blueprint) blueprintPaper();
+  if (wire) wirePaper();
   if (riso) risoPaper();
 
   for (const c of cells) {
-    if (blueprint) { wireBody(c); continue; }
+    if (wire) { wireBody(c); continue; }
     if (riso) { risoBody(c); continue; }
     // Paso 10 · Levísimo degradado: luz fija arriba a la izquierda, más claro ahí y un poco
     // más oscuro en el borde opuesto.
@@ -374,7 +374,7 @@ function draw() {
   const now = performance.now();
   ctx.fillStyle = INK;
   ctx.strokeStyle = INK;
-  if (blueprint) ctx.fillStyle = ctx.strokeStyle = BP_LINE;
+  if (wire) ctx.fillStyle = ctx.strokeStyle = WIRE_LINE;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   for (const c of cells) {
@@ -443,14 +443,14 @@ function draw() {
   // Paso 13 · Gotas de los globos que explotan.
   for (const d of drops) {
     ctx.fillStyle = d.color;
-    if (blueprint) ctx.fillStyle = BP_LINE;
+    if (wire) ctx.fillStyle = WIRE_LINE;
     if (yugop) ctx.fillStyle = '#000';
     if (riso) ctx.fillStyle = RISO_INKS[risoInk(d.color) % 2];
     ctx.beginPath();
     ctx.arc(d.x, d.y, Math.max(0.1, d.r * d.life), 0, Math.PI * 2);
     ctx.fill();
   }
-  if (blueprint) blueprintNotes();
+  if (wire) wireNotes();
   if (riso) risoGrain();
 }
 
@@ -863,9 +863,9 @@ window.vertikis = {
   pixelate(on = !pixel) {
     return this.mode(on ? 'pixel' : 'normal');
   },
-  // vertikis.blueprint(): el plano, en alambre (otra vez, o blueprint(false), para volver).
-  blueprint(on = !blueprint) {
-    return this.mode(on ? 'blueprint' : 'normal');
+  // vertikis.wire(): en alambre (otra vez, o wire(false), para volver).
+  wire(on = !wire) {
+    return this.mode(on ? 'wire' : 'normal');
   },
   // vertikis.mode('pixel'): cambia de visualización por su nombre (ver MODES). Sin
   // nombre, dice cuál está puesta.
@@ -875,7 +875,7 @@ window.vertikis = {
     const wasPixel = !!pixel;
     const wasYugop = yugop;
     pixel = name === 'pixel' ? pixelSize() : 0;
-    blueprint = name === 'blueprint';
+    wire = name === 'wire';
     yugop = name === 'yugop';
     riso = name === 'riso';
     // Al entrar en yugop se apunta cuántos hay (alrededor de ese número aparecen y
@@ -884,32 +884,34 @@ window.vertikis = {
     if (!yugop) cells = cells.filter((c) => !c.vanishing);
     if (pixel) loadPixelFonts();
     document.documentElement.classList.toggle('is-pixel', !!pixel);
-    document.documentElement.classList.toggle('is-blueprint', blueprint);
+    document.documentElement.classList.toggle('is-wire', wire);
     document.documentElement.classList.toggle('is-yugop', yugop);
     document.documentElement.classList.toggle('is-riso', riso);
     // El modo píxel cambia la resolución del canvas: hay que rehacerlo al entrar y al salir.
     if (wasPixel !== !!pixel) resize();
-    // La dirección lleva la visualización (#pixel, #blueprint), para poder compartirla.
+    // La dirección lleva la visualización (#pixel, #wire…), para poder compartirla.
     // Sin historial: cambiar de modo no llena el botón «atrás».
     // Si la página tiene dónde ([data-mode-name]), el nombre de la que está puesta.
     for (const el of document.querySelectorAll('[data-mode-name]')) el.textContent = name;
     const hash = name === 'normal' ? '' : `#${name}`;
     if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
-    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, blueprint: '⌗ blueprint', yugop: '+ yugop', riso: '◐ riso' }[name];
+    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, wire: '⌗ wire', yugop: '+ yugop', riso: '◐ riso' }[name];
   },
 };
 
 // Las visualizaciones, en el orden en que pasa por ellas el doble clic en «vertikis».
 // Para añadir una: su nombre aquí y lo que dibuje en draw().
-// El plano va siempre el último.
-const MODES = ['normal', 'pixel', 'yugop', 'riso', 'blueprint'];
+// «wire» va siempre el último.
+const MODES = ['normal', 'pixel', 'yugop', 'riso', 'wire'];
 const currentMode = () =>
-  riso ? 'riso' : yugop ? 'yugop' : blueprint ? 'blueprint' : pixel ? 'pixel' : 'normal';
+  riso ? 'riso' : yugop ? 'yugop' : wire ? 'wire' : pixel ? 'pixel' : 'normal';
 
-// Al abrir una dirección con #pixel, #yugop o #blueprint (o al cambiarla a mano), se pone esa
+// Al abrir una dirección con #pixel, #yugop, #riso o #wire (o al cambiarla a mano), se pone esa
 // visualización. Va en una microtarea: cuando el escenario ya está montado.
 const modeFromHash = () => {
-  const name = decodeURIComponent(location.hash.slice(1));
+  // «blueprint» era el nombre antiguo de «wire»: los enlaces de antes siguen funcionando.
+  const asked = decodeURIComponent(location.hash.slice(1));
+  const name = asked === 'blueprint' ? 'wire' : asked;
   window.vertikis.mode(MODES.includes(name) ? name : 'normal');
 };
 queueMicrotask(modeFromHash);
@@ -1101,7 +1103,7 @@ function loadPixelFonts() {
 }
 
 // Doble clic (o doble toque) en la etiqueta «vertikis» del pie: de normal a píxel, de
-// píxel al plano y del plano otra vez a normal.
+// una a otra por la lista (MODES) y del último otra vez a normal.
 const creditTag = document.querySelector('.credit__tag');
 if (creditTag) {
   creditTag.style.pointerEvents = 'auto';
@@ -1126,38 +1128,24 @@ if (creditTag) {
 }
 
 // =========================================================================================
-// Extra · El plano («blueprint»): el mismo escenario dibujado como un plano técnico, en
-// alambre sobre papel azul con cuadrícula. Se ve la física por dentro: los puntos del
-// anillo, la forma de reposo a la que vuelven (discontinua), los muelles que tiran de cada
-// punto hacia ella, el centro, el giro, el radio y los contactos entre vertikis.
+// Extra · En alambre («wire»): el mismo escenario dibujado como un esquema técnico, en
+// líneas gris oscuro sobre gris clarito. Se ve la física por dentro: los puntos del anillo,
+// la forma de reposo a la que vuelven (discontinua), los muelles que tiran de cada punto
+// hacia ella, el centro, el giro, el radio y los contactos entre vertikis.
 // =========================================================================================
 
-let blueprint = false;
-const BP_PAPER = '#1d4a86';
-const BP_LINE = '#eaf2ff';
-const bpInk = (a) => `rgba(234, 242, 255, ${a})`;
-const BP_FONT = '10px ui-monospace, Menlo, Consolas, monospace';
+let wire = false;
+const WIRE_PAPER = '#eeeeee';
+const WIRE_LINE = '#333333';
+const wireInk = (a) => `rgba(51, 51, 51, ${a})`;
+const WIRE_FONT = '10px ui-monospace, Menlo, Consolas, monospace';
 
-// El papel: azul, cuadrícula fina cada 16 px y gruesa cada 80, y los contactos (líneas
-// discontinuas entre los centros de los vertikis que se tocan), por debajo de todo.
-function blueprintPaper() {
-  ctx.fillStyle = BP_PAPER;
+// El papel, gris clarito y liso, y los contactos (líneas discontinuas entre los centros
+// de los vertikis que se tocan), por debajo de todo.
+function wirePaper() {
+  ctx.fillStyle = WIRE_PAPER;
   ctx.fillRect(0, 0, W, H);
-  ctx.lineWidth = 1;
-  for (const [gap, a] of [[16, 0.07], [80, 0.15]]) {
-    ctx.strokeStyle = bpInk(a);
-    ctx.beginPath();
-    for (let x = 0.5; x < W; x += gap) {
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, H);
-    }
-    for (let y = 0.5; y < H; y += gap) {
-      ctx.moveTo(0, y);
-      ctx.lineTo(W, y);
-    }
-    ctx.stroke();
-  }
-  ctx.strokeStyle = bpInk(0.35);
+  ctx.strokeStyle = wireInk(0.35);
   ctx.setLineDash([2, 4]);
   ctx.beginPath();
   for (let a = 0; a < cells.length; a++) {
@@ -1189,7 +1177,7 @@ function wireBody(c) {
 
   ctx.lineWidth = 1;
   // La forma de reposo, discontinua.
-  ctx.strokeStyle = bpInk(0.4);
+  ctx.strokeStyle = wireInk(0.4);
   ctx.setLineDash([3, 4]);
   ctx.beginPath();
   for (let i = 0; i < POINTS; i++) ctx.lineTo(gx[i], gy[i]);
@@ -1199,7 +1187,7 @@ function wireBody(c) {
 
   // Los muelles: de cada punto a su sitio en la forma de reposo. Cuanto más aplastado,
   // más largos.
-  ctx.strokeStyle = bpInk(0.55);
+  ctx.strokeStyle = wireInk(0.55);
   ctx.beginPath();
   for (let i = 0; i < POINTS; i++) {
     ctx.moveTo(c.x[i], c.y[i]);
@@ -1208,7 +1196,7 @@ function wireBody(c) {
   ctx.stroke();
 
   // El contorno de verdad, con las mismas curvas que el dibujo normal.
-  ctx.strokeStyle = BP_LINE;
+  ctx.strokeStyle = WIRE_LINE;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo((c.x[POINTS - 1] + c.x[0]) / 2, (c.y[POINTS - 1] + c.y[0]) / 2);
@@ -1220,7 +1208,7 @@ function wireBody(c) {
 
   // Los 28 puntos: nudos huecos.
   ctx.lineWidth = 1;
-  ctx.fillStyle = BP_PAPER;
+  ctx.fillStyle = WIRE_PAPER;
   for (let i = 0; i < POINTS; i++) {
     ctx.beginPath();
     ctx.arc(c.x[i], c.y[i], 2, 0, Math.PI * 2);
@@ -1239,7 +1227,7 @@ function wireBody(c) {
   ctx.stroke();
   const ex = c.cx + Math.cos(c.angle) * c.r;
   const ey = c.cy + Math.sin(c.angle) * c.r;
-  ctx.strokeStyle = bpInk(0.7);
+  ctx.strokeStyle = wireInk(0.7);
   ctx.beginPath();
   ctx.moveTo(c.cx, c.cy);
   ctx.lineTo(ex, ey);
@@ -1251,16 +1239,16 @@ function wireBody(c) {
   // La ficha: radio y giro, debajo de la cara (en los muy pequeños no cabe).
   if (c.r < 34) return;
   const deg = Math.round((Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 180) / Math.PI);
-  ctx.font = BP_FONT;
+  ctx.font = WIRE_FONT;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = bpInk(0.75);
+  ctx.fillStyle = wireInk(0.75);
   ctx.fillText(`r ${Math.round(c.r)} · ${deg}°`, c.cx, c.cy + c.r * 0.42);
 }
 
-// El cajetín del plano, abajo a la derecha, por encima del pie: qué es y con qué números
+// El cajetín, abajo a la derecha, por encima del pie: qué es y con qué números
 // funciona ahora mismo. En pantallas estrechas no cabe y no se dibuja.
-function blueprintNotes() {
+function wireNotes() {
   if (W < 640) return;
   const rows = [
     'VERTIKIS · SOFT BODIES',
@@ -1273,23 +1261,23 @@ function blueprintNotes() {
   const row = 18;
   const x = W - w - 16;
   const y = H - rows.length * row - 44;
-  ctx.fillStyle = BP_PAPER;
+  ctx.fillStyle = WIRE_PAPER;
   ctx.fillRect(x, y, w, rows.length * row);
-  ctx.strokeStyle = BP_LINE;
+  ctx.strokeStyle = WIRE_LINE;
   ctx.lineWidth = 1;
   ctx.strokeRect(x + 0.5, y + 0.5, w, rows.length * row);
-  ctx.font = BP_FONT;
+  ctx.font = WIRE_FONT;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   rows.forEach((text, n) => {
     if (n) {
-      ctx.strokeStyle = bpInk(0.4);
+      ctx.strokeStyle = wireInk(0.4);
       ctx.beginPath();
       ctx.moveTo(x, y + n * row + 0.5);
       ctx.lineTo(x + w, y + n * row + 0.5);
       ctx.stroke();
     }
-    ctx.fillStyle = n === 0 ? BP_LINE : bpInk(0.75);
+    ctx.fillStyle = n === 0 ? WIRE_LINE : wireInk(0.75);
     ctx.fillText(text, x + 10, y + n * row + row / 2 + 0.5);
   });
 }
@@ -1537,7 +1525,7 @@ function tumbleweed(now) {
   // borrosa del mismo color) para que no parezca un círculo recortado.
   ctx.save();
   ctx.translate(w.x, w.y);
-  const ink = blueprint ? BP_LINE : riso ? RISO_INKS[1] : pixel ? `rgb(${WEED_PX})` : INK;
+  const ink = wire ? WIRE_LINE : riso ? RISO_INKS[1] : pixel ? `rgb(${WEED_PX})` : INK;
   ctx.fillStyle = ink;
   ctx.strokeStyle = ink;
   ctx.lineCap = 'round';
@@ -1635,7 +1623,7 @@ function tumbleweed(now) {
     ctx.arc(0, centerY, R, a0, Math.PI - a0);
     ctx.stroke();
   };
-  if (!pixel) face(blueprint ? BP_PAPER : riso ? RISO_PAPER : '#fff', 0);
+  if (!pixel) face(wire ? WIRE_PAPER : riso ? RISO_PAPER : '#fff', 0);
   ctx.restore();
   if (pixel) pixelFace(w, w.x, w.y, 0, s, false, false, '#000', now);
 }
