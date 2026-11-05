@@ -138,7 +138,7 @@ function populate() {
   const target = W * H * 0.5;
   let area = 0;
   for (let tries = 0; tries < 6000 && area < target; tries++) {
-    const r = unit * (0.09 + Math.random() ** 1.3 * 0.12);
+    const r = unit * randomSize();
     const cx = r * 0.6 + Math.random() * (W - r * 1.2);
     const cy = r * 0.6 + Math.random() * (H - r * 1.2);
     // Si se monta demasiado sobre otro, probamos en otro sitio.
@@ -1290,20 +1290,37 @@ function wireNotes() {
 
 let yugop = false;
 
+// Tamaño al azar, en fracción del lado corto de la pantalla. Normal: del 7 % al 22 %. En
+// yugop, más contraste, como en el original: del 5 % al 24 %, con más pequeños (la
+// potencia más alta los hace más frecuentes) y algún grande.
+const randomSize = () => (yugop ? 0.05 + Math.random() ** 1.6 * 0.19 : 0.07 + Math.random() ** 1.3 * 0.15);
+
 // Cuánto se ovala la forma de reposo: en yugop, menos de la mitad (casi redondos, pero
 // no círculos perfectos).
 const oval = (c) => (yugop ? c.e * 0.4 : c.e);
-// En el modo yugop flotan casi redondos, como en el original: la gravedad a un 5 % (caen
-// muy despacio) y algo más de rigidez (se aplastan poco, pero se aplastan). Y cada pocos
+// En el modo yugop flotan casi redondos, como en el original: la gravedad a un 20 % (caen
+// despacio) y algo más de rigidez (se aplastan poco, pero se aplastan). Y cada pocos
 // segundos uno desaparece (se encoge hasta nada, con un «fiu») o aparece otro en un hueco
 // entre los demás (crece desde nada, con un «tic tic», y los empuja para hacerse sitio).
-const YUGOP = { gravity: 0.05, stiffness: 0.62, every: [1800, 4200] };
+const YUGOP = { gravity: 0.2, stiffness: 0.62, every: [1800, 4200] };
 let yugopBase = 0;
 let yugopNextAt = 0;
 
 function yugopStart() {
   yugopBase = Math.max(4, cells.length);
   yugopNextAt = performance.now() + 1500;
+  // Al entrar, cada uno se va a un tamaño nuevo de la escala de yugop (crecen o encogen
+  // suavemente), para que la variedad se vea enseguida. Se reajustan todos para que entre
+  // todos ocupen lo mismo que antes: si no, no caben y se aplastan unos contra otros.
+  const unit = Math.min(W, H);
+  const alive = cells.filter((c) => !c.vanishing);
+  const sizes = alive.map(() => unit * randomSize());
+  const before = alive.reduce((sum, c) => sum + c.rest * c.rest, 0);
+  const after = sizes.reduce((sum, r) => sum + r * r, 0);
+  const k = after ? Math.sqrt(before / after) : 1;
+  alive.forEach((c, n) => {
+    c.target = c.rest = sizes[n] * k;
+  });
 }
 
 function yugopLife(now) {
@@ -1332,7 +1349,7 @@ function yugopLife(now) {
   // no en el cielo vacío. Nace casi sin tamaño y, al crecer, empuja a sus vecinos para
   // hacerse sitio. Si no hay ningún hueco así, en cualquier sitio libre.
   const unit = Math.min(W, H);
-  const r = unit * (0.09 + Math.random() ** 1.3 * 0.12);
+  const r = unit * randomSize();
   const gaps = [];
   const free = [];
   for (let tries = 0; tries < 60; tries++) {

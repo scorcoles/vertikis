@@ -227,7 +227,8 @@ function populate() {
   const target = W * H * 0.5;
   let area = 0;
   for (let tries = 0; tries < 6000 && area < target; tries++) {
-    const r = unit * (0.09 + Math.random() ** 1.3 * 0.12);
+    const r = unit * (0.09 + Math.random() ** 1.3 * 0.12); // @7-16
+    const r = unit * randomSize(); // @17
     const cx = r * 0.6 + Math.random() * (W - r * 1.2);
     const cy = r * 0.6 + Math.random() * (H - r * 1.2);
     //es Si se monta demasiado sobre otro, probamos en otro sitio.
@@ -1669,26 +1670,49 @@ function wireNotes() {
 
 let yugop = false;
 
+//es Tamaño al azar, en fracción del lado corto de la pantalla. Normal: del 7 % al 22 %. En
+//es yugop, más contraste, como en el original: del 5 % al 24 %, con más pequeños (la
+//es potencia más alta los hace más frecuentes) y algún grande.
+//en Random size, as a fraction of the screen's short side. Normal: 7 % to 22 %. In yugop,
+//en more contrast, as in the original: 5 % to 24 %, with more small ones (the higher power
+//en makes them more frequent) and the odd big one.
+const randomSize = () => (yugop ? 0.05 + Math.random() ** 1.6 * 0.19 : 0.07 + Math.random() ** 1.3 * 0.15);
+
 //es Cuánto se ovala la forma de reposo: en yugop, menos de la mitad (casi redondos, pero
 //es no círculos perfectos).
 //en How oval the resting shape is: in yugop, less than half (nearly round, but not perfect
 //en circles).
 const oval = (c) => (yugop ? c.e * 0.4 : c.e);
-//es En el modo yugop flotan casi redondos, como en el original: la gravedad a un 5 % (caen
-//es muy despacio) y algo más de rigidez (se aplastan poco, pero se aplastan). Y cada pocos
+//es En el modo yugop flotan casi redondos, como en el original: la gravedad a un 20 % (caen
+//es despacio) y algo más de rigidez (se aplastan poco, pero se aplastan). Y cada pocos
 //es segundos uno desaparece (se encoge hasta nada, con un «fiu») o aparece otro en un hueco
 //es entre los demás (crece desde nada, con un «tic tic», y los empuja para hacerse sitio).
-//en In yugop mode they float almost round, as in the original: gravity at 5 % (they sink
-//en very slowly) and a bit more stiffness (they squash a little, but they do). And every few
+//en In yugop mode they float almost round, as in the original: gravity at 20 % (they sink
+//en slowly) and a bit more stiffness (they squash a little, but they do). And every few
 //en seconds one vanishes (shrinks to nothing, with a «fwip») or another appears in a gap
 //en between the others (grows from nothing, with a «tick tick», pushing them to make room).
-const YUGOP = { gravity: 0.05, stiffness: 0.62, every: [1800, 4200] };
+const YUGOP = { gravity: 0.2, stiffness: 0.62, every: [1800, 4200] };
 let yugopBase = 0;
 let yugopNextAt = 0;
 
 function yugopStart() {
   yugopBase = Math.max(4, cells.length);
   yugopNextAt = performance.now() + 1500;
+  //es Al entrar, cada uno se va a un tamaño nuevo de la escala de yugop (crecen o encogen
+  //es suavemente), para que la variedad se vea enseguida. Se reajustan todos para que entre
+  //es todos ocupen lo mismo que antes: si no, no caben y se aplastan unos contra otros.
+  //en On entering, each one moves to a new size from the yugop scale (growing or shrinking
+  //en smoothly), so the variety shows straight away. They're all rescaled to take up the same
+  //en area as before: otherwise they don't fit and squash against each other.
+  const unit = Math.min(W, H);
+  const alive = cells.filter((c) => !c.vanishing);
+  const sizes = alive.map(() => unit * randomSize());
+  const before = alive.reduce((sum, c) => sum + c.rest * c.rest, 0);
+  const after = sizes.reduce((sum, r) => sum + r * r, 0);
+  const k = after ? Math.sqrt(before / after) : 1;
+  alive.forEach((c, n) => {
+    c.target = c.rest = sizes[n] * k;
+  });
 }
 
 function yugopLife(now) {
@@ -1723,7 +1747,7 @@ function yugopLife(now) {
   //en not in the empty sky. It's born almost sizeless and, as it grows, pushes its neighbours
   //en aside to make room. If there's no such gap, anywhere free.
   const unit = Math.min(W, H);
-  const r = unit * (0.09 + Math.random() ** 1.3 * 0.12);
+  const r = unit * randomSize();
   const gaps = [];
   const free = [];
   for (let tries = 0; tries < 60; tries++) {
