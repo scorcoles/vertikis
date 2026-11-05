@@ -894,7 +894,7 @@ window.vertikis = {
     if (wasPixel !== !!pixel) resize();
     // La dirección lleva la visualización (#pixel, #blueprint), para poder compartirla.
     // Sin historial: cambiar de modo no llena el botón «atrás».
-    // En el pie, el nombre de la que está puesta (entre las flechas).
+    // Si la página tiene dónde ([data-mode-name]), el nombre de la que está puesta.
     for (const el of document.querySelectorAll('[data-mode-name]')) el.textContent = name;
     const hash = name === 'normal' ? '' : `#${name}`;
     if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
@@ -917,7 +917,7 @@ const modeFromHash = () => {
 };
 queueMicrotask(modeFromHash);
 
-// Las flechas del pie: la visualización anterior y la siguiente (dando la vuelta).
+// «Prev» y «Next» en el pie: la visualización anterior y la siguiente (dando la vuelta).
 const stepMode = (by) => {
   const n = MODES.length;
   window.vertikis.mode(MODES[(MODES.indexOf(currentMode()) + by + n) % n]);

@@ -58,7 +58,7 @@ canvas.is-dragging {
   margin: 0 0.6em;
 }
 
-/* Las flechas para cambiar de visualización, con su nombre en medio. */
+/* «Prev» y «Next»: la visualización anterior y la siguiente. */
 .credit__modes {
   white-space: nowrap;
 }
@@ -66,11 +66,13 @@ canvas.is-dragging {
 .credit__modes button {
   /* Más zona para el dedo que lo que se ve. */
   margin: -8px 0;
-  padding: 8px 0.5em;
+  padding: 8px 0;
   border: 0;
   background: none;
   color: inherit;
   font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
   cursor: pointer;
   pointer-events: auto;
 }
@@ -171,4 +173,27 @@ canvas.is-dragging {
 .is-ascii .credit__tag {
   background: #d8d8d8;
   color: #111;
+}
+
+/* En riso el pie va sobre una tira de papel: sobre las tintas no se leía. */
+.is-riso .credit {
+  left: 6px;
+  bottom: 6px;
+  padding: 2px 6px 2px 2px;
+  background: #f3efe6;
+}
+
+/* En escritorio, el pie un punto más grande. */
+@media (min-width: 64rem) and (pointer: fine) {
+  .credit {
+    font-size: 10px;
+  }
+
+  .is-pixel .credit {
+    font-size: 12px;
+  }
+
+  .is-pixel .credit__tag {
+    font-size: 11px;
+  }
 }
