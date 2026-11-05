@@ -67,7 +67,7 @@ let cells = [];
 function makeCell(cx, cy, r) {
   // Paso 10 · Forma de reposo un poco ovalada (orgánica, no un círculo perfecto): el eje
   // largo mide r·(1+e) y el corto r·(1−e), con el eje largo en una dirección al azar.
-  const e = 0.02 + Math.random() * 0.04;
+  const e = 0.01 + Math.random() * 0.02;
   const turn = Math.random() * Math.PI;
   const cos = Math.cos(turn);
   const sin = Math.sin(turn);

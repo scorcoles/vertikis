@@ -126,7 +126,7 @@ function makeCell(cx, cy, r) {
   //es largo mide r·(1+e) y el corto r·(1−e), con el eje largo en una dirección al azar.
   //en Step 10 · A slightly oval resting shape (organic, not a perfect circle): the long axis
   //en is r·(1+e) and the short one r·(1−e), with the long axis pointing in a random direction.
-  const e = 0.02 + Math.random() * 0.04;
+  const e = 0.01 + Math.random() * 0.02;
   const turn = Math.random() * Math.PI;
   const cos = Math.cos(turn);
   const sin = Math.sin(turn);
