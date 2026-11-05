@@ -95,8 +95,8 @@ canvas.is-dragging {
   margin-right: 4px;
 }
 
-/* Modo píxel (vertikis.pixelate() por consola): fondo oscuro, píxeles sin suavizar y letras al
-   estilo de pamir.ai (Iosevka y una de píxeles para la etiqueta). */
+/* Modo píxel (#pixel): fondo oscuro y píxeles sin suavizar. El pie, con su letra de siempre
+   (una de píxeles cambiaba el ancho del texto y, tan pequeña, no aportaba). */
 .is-pixel body {
   background: #1a1a1a;
 }
@@ -107,14 +107,10 @@ canvas.is-dragging {
 }
 
 .is-pixel .credit {
-  font: 11px/1.45 Iosevka, ui-monospace, Menlo, monospace;
-  letter-spacing: 0;
   color: #e9e7e0;
 }
 
 .is-pixel .credit__tag {
-  font-family: Silkscreen, Iosevka, monospace;
-  font-size: 10px;
   background: #ff6a13;
   color: #fff;
 }
@@ -172,14 +168,6 @@ canvas.is-dragging {
 @media (min-width: 64rem) and (pointer: fine) {
   .credit {
     font-size: 10px;
-  }
-
-  .is-pixel .credit {
-    font-size: 12px;
-  }
-
-  .is-pixel .credit__tag {
-    font-size: 11px;
   }
 }
 

@@ -882,7 +882,6 @@ window.vertikis = {
     // desaparecen); al salir, los que estaban desapareciendo se van del todo.
     if (yugop && !wasYugop) yugopStart();
     if (!yugop) cells = cells.filter((c) => !c.vanishing);
-    if (pixel) loadPixelFonts();
     document.documentElement.classList.toggle('is-pixel', !!pixel);
     document.documentElement.classList.toggle('is-wire', wire);
     document.documentElement.classList.toggle('is-yugop', yugop);
@@ -1083,23 +1082,6 @@ function pixelFace(f, x, y, rot, s, squint, surprised, color, now) {
   }
   path(pts, pen);
   ctx.restore();
-}
-
-// Las letras del modo píxel, como en pamir.ai: Iosevka para el texto y una de píxeles
-// (Silkscreen) para la etiqueta. Se cargan solo la primera vez que se activa.
-let pixelFonts = false;
-function loadPixelFonts() {
-  if (pixelFonts) return;
-  pixelFonts = true;
-  for (const href of [
-    'https://cdn.jsdelivr.net/npm/@fontsource/iosevka@5.2.5/400.css',
-    'https://fonts.googleapis.com/css2?family=Silkscreen&display=swap',
-  ]) {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = href;
-    document.head.append(link);
-  }
 }
 
 // Doble clic (o doble toque) en la etiqueta «vertikis» del pie: de normal a píxel, de
