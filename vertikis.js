@@ -164,7 +164,8 @@ const STIFFNESS = 0.45;
 // Táctil si tiene algún dedo posible: una tablet con lápiz o con teclado puede decir que su
 // puntero principal es «fino», así que basta con que alguno sea táctil.
 const touchDevice = navigator.maxTouchPoints > 0 || window.matchMedia('(any-pointer: coarse)').matches;
-const GRAVITY = touchDevice ? 0.27 : 0.45;
+// En el móvil, un 15 % menos que en el tutorial: se apilan menos apretados.
+const GRAVITY = touchDevice ? 0.23 : 0.45;
 let gravX = 0;
 let gravY = 1;
 

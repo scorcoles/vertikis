@@ -272,7 +272,10 @@ const GRAVITY = 0.45; // @4-15
 //en Touch if any finger is possible: a tablet with a stylus or keyboard may report a «fine»
 //en main pointer, so it's enough for any of them to be touch.
 const touchDevice = navigator.maxTouchPoints > 0 || window.matchMedia('(any-pointer: coarse)').matches;
-const GRAVITY = touchDevice ? 0.27 : 0.45;
+const GRAVITY = touchDevice ? 0.27 : 0.45; // @16-16
+//es@17 En el móvil, un 15 % menos que en el tutorial: se apilan menos apretados.
+//en@17 On phones, 15 % less than in the tutorial: they pile up less tightly.
+const GRAVITY = touchDevice ? 0.23 : 0.45; // @17
 let gravX = 0;
 let gravY = 1;
 //<<
