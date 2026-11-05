@@ -324,8 +324,8 @@ function step() {
         c.x[i] = c.x[i] < 0 ? 0 : W;
         c.py[i] = c.y[i] - (c.y[i] - c.py[i]) * 0.6;
       }
-      if (c.y[i] < 0 || c.y[i] > H) {
-        c.y[i] = c.y[i] < 0 ? 0 : H;
+      if (c.y[i] < 0 || c.y[i] > floor) {
+        c.y[i] = c.y[i] < 0 ? 0 : floor;
         c.px[i] = c.x[i] - (c.x[i] - c.px[i]) * 0.6;
       }
     }
@@ -462,6 +462,7 @@ function frame() {
   updateHover();
   updateGravity();
   const now = performance.now();
+  updateFloor();
   if (yugop) yugopLife(now);
 
   for (const c of cells) {
@@ -1281,6 +1282,16 @@ function wireNotes() {
 
 let yugop = false;
 
+// El suelo: en pantallas estrechas (el móvil) el pie ocupa varias líneas abajo y tapaba a
+// los pequeños; el suelo sube hasta justo encima del pie y los vertikis se apoyan en él.
+// En pantallas anchas el pie es una línea fina y el suelo es el borde de la ventana.
+let floor = 0;
+const creditEl = document.querySelector('.credit');
+function updateFloor() {
+  const narrow = window.matchMedia('(max-width: 63.99rem), (pointer: coarse)').matches;
+  floor = narrow && creditEl ? Math.max(H * 0.5, creditEl.getBoundingClientRect().top - 6) : H;
+}
+
 // La medida de los tamaños. En una pantalla apaisada, el lado corto. En vertical (el
 // móvil), un 20 % más que el ancho: si no, salen muchos pequeños apilados en una columna
 // alta y el peso de encima aplasta a los de abajo. Y en vertical ocupan algo menos (un
@@ -1290,11 +1301,12 @@ const fillShare = () => (H > W ? 0.4 : 0.5);
 
 // Rigidez de cada vertiki. Los pequeños, más rígidos: los grandes pesan más y, si no, los
 // dejan aplastados como pasas. De 0,5 en los grandes a 0,68 en los más pequeños (en yugop,
-// sobre la suya, más alta). Siguen deformándose, pero menos.
+// sobre la suya, más alta). En vertical (el móvil) hay más filas apiladas y más peso
+// encima: todo 0,12 más rígido, y los pequeños hasta 0,85. Siguen deformándose, pero menos.
 function stiffness(c) {
   const unit = sizeUnit();
   const small = Math.max(0, Math.min(1, (unit * 0.15 - c.r) / (unit * 0.08)));
-  const base = yugop ? YUGOP.stiffness : 0.5;
+  const base = (yugop ? YUGOP.stiffness : 0.5) + (H > W ? 0.12 : 0);
   return Math.min(0.85, base + 0.18 * small);
 }
 
@@ -1362,7 +1374,7 @@ function yugopLife(now) {
   const free = [];
   for (let tries = 0; tries < 60; tries++) {
     const px = r * 0.5 + Math.random() * (W - r);
-    const py = r * 0.5 + Math.random() * (H - r);
+    const py = r * 0.5 + Math.random() * (floor - r);
     // Distancia al borde del vertiki más cercano (negativa si cae dentro de uno).
     let clear = Infinity;
     for (const k of cells) clear = Math.min(clear, Math.hypot(k.cx - px, k.cy - py) - k.r);
@@ -1516,7 +1528,7 @@ function makeWeed() {
       curl: (Math.random() - 0.5) * 1.1, phase: Math.random() * Math.PI * 2, b: 0, bv: 0,
     });
   }
-  const y = H - r;
+  const y = floor - r;
   return {
     x: -r * 1.4, y, vy: 0, rot: 0, r, speed: 3.2 + Math.random(), lumps, hairs,
     prevX: -r * 1.4 - 3.5, prevY: y, prevRot: 0, pvx: 3.5, pvy: 0,
@@ -1551,15 +1563,15 @@ function tumbleweed(now) {
   const w = weed;
   if (weedGrab) {
     w.x = pointer.x - weedGrab.x;
-    w.y = Math.min(H - w.r, pointer.y - weedGrab.y);
+    w.y = Math.min(floor - w.r, pointer.y - weedGrab.y);
     w.vy = 0;
   } else {
     w.x += w.speed;
     w.rot += w.speed / w.r;
     w.vy += 0.35;
     w.y += w.vy;
-    if (w.y > H - w.r) {
-      w.y = H - w.r;
+    if (w.y > floor - w.r) {
+      w.y = floor - w.r;
       w.vy = -(1.5 + Math.random() * 3.5);
     }
     if (w.x - w.r * 1.4 > W) {
