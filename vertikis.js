@@ -133,9 +133,9 @@ function makeCell(cx, cy, r) {
 // apretados y aplastados por los contactos.
 function populate() {
   cells = [];
-  const unit = Math.min(W, H);
+  const unit = sizeUnit();
   // Superficie que ocupan: la mitad de la pantalla.
-  const target = W * H * 0.5;
+  const target = W * H * fillShare();
   let area = 0;
   for (let tries = 0; tries < 6000 && area < target; tries++) {
     const r = unit * randomSize();
@@ -678,7 +678,7 @@ function inflate(c) {
 
 // Un vertiki nuevo de tamaño al azar, que nace pequeño y crece hasta su tamaño.
 function spawn(x, y) {
-  const target = Math.min(W, H) * (0.07 + Math.random() * 0.14);
+  const target = sizeUnit() * randomSize();
   const c = makeCell(x, y, target * 0.15);
   c.target = target;
   c.rest = target;
@@ -1281,11 +1281,18 @@ function wireNotes() {
 
 let yugop = false;
 
+// La medida de los tamaños. En una pantalla apaisada, el lado corto. En vertical (el
+// móvil), un 20 % más que el ancho: si no, salen muchos pequeños apilados en una columna
+// alta y el peso de encima aplasta a los de abajo. Y en vertical ocupan algo menos (un
+// 40 % de la pantalla en vez de la mitad): menos filas, menos peso.
+const sizeUnit = () => (H > W ? Math.min(W * 1.2, H) : Math.min(W, H));
+const fillShare = () => (H > W ? 0.4 : 0.5);
+
 // Rigidez de cada vertiki. Los pequeños, más rígidos: los grandes pesan más y, si no, los
 // dejan aplastados como pasas. De 0,5 en los grandes a 0,68 en los más pequeños (en yugop,
 // sobre la suya, más alta). Siguen deformándose, pero menos.
 function stiffness(c) {
-  const unit = Math.min(W, H);
+  const unit = sizeUnit();
   const small = Math.max(0, Math.min(1, (unit * 0.15 - c.r) / (unit * 0.08)));
   const base = yugop ? YUGOP.stiffness : 0.5;
   return Math.min(0.85, base + 0.18 * small);
@@ -1313,7 +1320,7 @@ function yugopStart() {
   // Al entrar, cada uno se va a un tamaño nuevo de la escala de yugop (crecen o encogen
   // suavemente), para que la variedad se vea enseguida. Se reajustan todos para que entre
   // todos ocupen lo mismo que antes: si no, no caben y se aplastan unos contra otros.
-  const unit = Math.min(W, H);
+  const unit = sizeUnit();
   const alive = cells.filter((c) => !c.vanishing);
   const sizes = alive.map(() => unit * randomSize());
   const before = alive.reduce((sum, c) => sum + c.rest * c.rest, 0);
@@ -1349,7 +1356,7 @@ function yugopLife(now) {
   // Aparecer: en un hueco entre los demás (un punto fuera de todos pero cerca de alguno),
   // no en el cielo vacío. Nace casi sin tamaño y, al crecer, empuja a sus vecinos para
   // hacerse sitio. Si no hay ningún hueco así, en cualquier sitio libre.
-  const unit = Math.min(W, H);
+  const unit = sizeUnit();
   const r = unit * randomSize();
   const gaps = [];
   const free = [];

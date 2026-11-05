@@ -221,10 +221,12 @@ function makeCell(cx, cy, r) {
 //en up packed together and flattened where they touch.
 function populate() {
   cells = [];
-  const unit = Math.min(W, H);
+  const unit = Math.min(W, H); // @7-16
+  const unit = sizeUnit(); // @17
   //es Superficie que ocupan: la mitad de la pantalla.
   //en Area they cover: half the screen.
-  const target = W * H * 0.5;
+  const target = W * H * 0.5; // @7-16
+  const target = W * H * fillShare(); // @17
   let area = 0;
   for (let tries = 0; tries < 6000 && area < target; tries++) {
     const r = unit * (0.09 + Math.random() ** 1.3 * 0.12); // @7-16
@@ -937,7 +939,8 @@ function inflate(c) {
 //es Un vertiki nuevo de tamaño al azar, que nace pequeño y crece hasta su tamaño.
 //en A new vertiki of random size, born small and growing to full size.
 function spawn(x, y) {
-  const target = Math.min(W, H) * (0.07 + Math.random() * 0.14);
+  const target = Math.min(W, H) * (0.07 + Math.random() * 0.14); // @14-16
+  const target = sizeUnit() * randomSize(); // @17
   const c = makeCell(x, y, target * 0.15);
   c.target = target;
   c.rest = target;
@@ -1660,6 +1663,17 @@ function wireNotes() {
 
 let yugop = false;
 
+//es La medida de los tamaños. En una pantalla apaisada, el lado corto. En vertical (el
+//es móvil), un 20 % más que el ancho: si no, salen muchos pequeños apilados en una columna
+//es alta y el peso de encima aplasta a los de abajo. Y en vertical ocupan algo menos (un
+//es 40 % de la pantalla en vez de la mitad): menos filas, menos peso.
+//en The measure for sizes. On a landscape screen, the short side. In portrait (phones), 20 %
+//en more than the width: otherwise lots of small ones pile up in a tall column and the weight
+//en on top squashes the ones underneath. And in portrait they cover a bit less (40 % of the
+//en screen instead of half): fewer rows, less weight.
+const sizeUnit = () => (H > W ? Math.min(W * 1.2, H) : Math.min(W, H));
+const fillShare = () => (H > W ? 0.4 : 0.5);
+
 //es Rigidez de cada vertiki. Los pequeños, más rígidos: los grandes pesan más y, si no, los
 //es dejan aplastados como pasas. De 0,5 en los grandes a 0,68 en los más pequeños (en yugop,
 //es sobre la suya, más alta). Siguen deformándose, pero menos.
@@ -1667,7 +1681,7 @@ let yugop = false;
 //en leave them squashed flat. From 0.5 for the big ones to 0.68 for the smallest (in yugop,
 //en on top of its own, higher one). They still deform, just less.
 function stiffness(c) {
-  const unit = Math.min(W, H);
+  const unit = sizeUnit();
   const small = Math.max(0, Math.min(1, (unit * 0.15 - c.r) / (unit * 0.08)));
   const base = yugop ? YUGOP.stiffness : 0.5;
   return Math.min(0.85, base + 0.18 * small);
@@ -1707,7 +1721,7 @@ function yugopStart() {
   //en On entering, each one moves to a new size from the yugop scale (growing or shrinking
   //en smoothly), so the variety shows straight away. They're all rescaled to take up the same
   //en area as before: otherwise they don't fit and squash against each other.
-  const unit = Math.min(W, H);
+  const unit = sizeUnit();
   const alive = cells.filter((c) => !c.vanishing);
   const sizes = alive.map(() => unit * randomSize());
   const before = alive.reduce((sum, c) => sum + c.rest * c.rest, 0);
@@ -1749,7 +1763,7 @@ function yugopLife(now) {
   //en Appearing: in a gap between the others (a point outside all of them but close to one),
   //en not in the empty sky. It's born almost sizeless and, as it grows, pushes its neighbours
   //en aside to make room. If there's no such gap, anywhere free.
-  const unit = Math.min(W, H);
+  const unit = sizeUnit();
   const r = unit * randomSize();
   const gaps = [];
   const free = [];
