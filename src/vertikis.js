@@ -435,7 +435,12 @@ function step() {
       let dx = B.cx - A.cx;
       let dy = B.cy - A.cy;
       let d = Math.hypot(dx, dy);
-      const min = (A.r + B.r) * 0.88;
+      const min = (A.r + B.r) * 0.88; // @8-16
+      //es@17 El solape que se permite se mide con el más pequeño de los dos (con dos iguales,
+      //es@17 lo mismo que antes): si no, un grande encima de uno pequeño lo deja chafado.
+      //en@17 The allowed overlap is measured on the smaller of the two (for two equal ones, the
+      //en@17 same as before): otherwise a big one on top of a small one squashes it flat.
+      const min = A.r + B.r - Math.min(A.r, B.r) * 0.24; // @17
       if (d >= min) continue;
       if (d < 0.01) {
         //es Centros casi iguales: se separan en una dirección al azar.

@@ -282,7 +282,9 @@ function step() {
       let dx = B.cx - A.cx;
       let dy = B.cy - A.cy;
       let d = Math.hypot(dx, dy);
-      const min = (A.r + B.r) * 0.88;
+      // El solape que se permite se mide con el más pequeño de los dos (con dos iguales,
+      // lo mismo que antes): si no, un grande encima de uno pequeño lo deja chafado.
+      const min = A.r + B.r - Math.min(A.r, B.r) * 0.24;
       if (d >= min) continue;
       if (d < 0.01) {
         // Centros casi iguales: se separan en una dirección al azar.
