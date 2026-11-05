@@ -89,3 +89,18 @@ canvas.is-dragging {
   background: #ff6a13;
   color: #fff;
 }
+
+/* El plano (doble clic en «vertikis» desde el modo píxel, o vertikis.blueprint() por
+   consola): papel azul y letras claras. */
+.is-blueprint body {
+  background: #1d4a86;
+}
+
+.is-blueprint .credit {
+  color: #eaf2ff;
+}
+
+.is-blueprint .credit__tag {
+  background: #eaf2ff;
+  color: #1d4a86;
+}

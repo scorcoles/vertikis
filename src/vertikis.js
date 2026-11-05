@@ -499,8 +499,10 @@ const INK = '#1b1b1b'; // @12
 
 function draw() {
   ctx.clearRect(0, 0, W, H);
+  if (blueprint) blueprintPaper(); // @17
 
   for (const c of cells) {
+    if (blueprint) { wireBody(c); continue; } // @17
     //es@3-9 Un gris neutro, hasta que lleguen los colores en el paso 10.
     //en@3-9 A neutral grey, until colours arrive in step 10.
     ctx.fillStyle = '#cfcfcf'; // @3-9
@@ -548,6 +550,7 @@ function draw() {
   const now = performance.now();
   ctx.fillStyle = INK;
   ctx.strokeStyle = INK;
+  if (blueprint) ctx.fillStyle = ctx.strokeStyle = BP_LINE; // @17
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   for (const c of cells) {
@@ -627,11 +630,13 @@ function draw() {
   //en Step 13 · Droplets from burst balloons.
   for (const d of drops) {
     ctx.fillStyle = d.color;
+    if (blueprint) ctx.fillStyle = BP_LINE; // @17
     ctx.beginPath();
     ctx.arc(d.x, d.y, Math.max(0.1, d.r * d.life), 0, Math.PI * 2);
     ctx.fill();
   }
   //<<
+  if (blueprint) blueprintNotes(); // @17
 }
 //<<
 
@@ -1155,6 +1160,14 @@ window.vertikis = {
     resize();
     return on ? `▦ pixel ×${pixel}` : '● smooth';
   },
+  //es vertikis.blueprint(): el plano, en alambre (otra vez, o blueprint(false), para volver).
+  //en vertikis.blueprint(): the blueprint, in wireframe (again, or blueprint(false), to go back).
+  blueprint(on = !blueprint) {
+    if (on && pixel) this.pixelate(false);
+    blueprint = !!on;
+    document.documentElement.classList.toggle('is-blueprint', blueprint);
+    return blueprint ? '⌗ blueprint' : '● smooth';
+  },
 };
 
 //es =========================================================================================
@@ -1343,8 +1356,10 @@ function loadPixelFonts() {
   }
 }
 
-//es Doble clic (o doble toque) en la etiqueta «vertikis» del pie: modo píxel (y vuelta).
-//en Double-click (or double-tap) on the «vertikis» tag in the footer: pixel mode (and back).
+//es Doble clic (o doble toque) en la etiqueta «vertikis» del pie: de normal a píxel, de
+//es píxel al plano y del plano otra vez a normal.
+//en Double-click (or double-tap) on the «vertikis» tag in the footer: from normal to pixel,
+//en from pixel to the blueprint, and from the blueprint back to normal.
 const creditTag = document.querySelector('.credit__tag');
 if (creditTag) {
   creditTag.style.pointerEvents = 'auto';
@@ -1363,7 +1378,198 @@ if (creditTag) {
       unlocked = true;
       ac();
     }
-    window.vertikis.pixelate();
+    if (blueprint) window.vertikis.blueprint(false);
+    else if (pixel) window.vertikis.blueprint(true);
+    else window.vertikis.pixelate(true);
+  });
+}
+
+//es =========================================================================================
+//es Extra · El plano («blueprint»): el mismo escenario dibujado como un plano técnico, en
+//es alambre sobre papel azul con cuadrícula. Se ve la física por dentro: los puntos del
+//es anillo, la forma de reposo a la que vuelven (discontinua), los muelles que tiran de cada
+//es punto hacia ella, el centro, el giro, el radio y los contactos entre vertikis.
+//es =========================================================================================
+//en =========================================================================================
+//en Extra · The blueprint: the same stage drawn as a technical drawing, in wireframe on blue
+//en paper with a grid. You see the physics from the inside: the ring's points, the resting
+//en shape they return to (dashed), the springs pulling each point towards it, the centre,
+//en the rotation, the radius and the contacts between vertikis.
+//en =========================================================================================
+
+let blueprint = false;
+const BP_PAPER = '#1d4a86';
+const BP_LINE = '#eaf2ff';
+const bpInk = (a) => `rgba(234, 242, 255, ${a})`;
+const BP_FONT = '10px ui-monospace, Menlo, Consolas, monospace';
+
+//es El papel: azul, cuadrícula fina cada 16 px y gruesa cada 80, y los contactos (líneas
+//es discontinuas entre los centros de los vertikis que se tocan), por debajo de todo.
+//en The paper: blue, a fine grid every 16 px and a heavier one every 80, and the contacts
+//en (dashed lines between the centres of vertikis that touch), underneath everything.
+function blueprintPaper() {
+  ctx.fillStyle = BP_PAPER;
+  ctx.fillRect(0, 0, W, H);
+  ctx.lineWidth = 1;
+  for (const [gap, a] of [[16, 0.07], [80, 0.15]]) {
+    ctx.strokeStyle = bpInk(a);
+    ctx.beginPath();
+    for (let x = 0.5; x < W; x += gap) {
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, H);
+    }
+    for (let y = 0.5; y < H; y += gap) {
+      ctx.moveTo(0, y);
+      ctx.lineTo(W, y);
+    }
+    ctx.stroke();
+  }
+  ctx.strokeStyle = bpInk(0.35);
+  ctx.setLineDash([2, 4]);
+  ctx.beginPath();
+  for (let a = 0; a < cells.length; a++) {
+    for (let b = a + 1; b < cells.length; b++) {
+      const A = cells[a];
+      const B = cells[b];
+      if (Math.hypot(A.cx - B.cx, A.cy - B.cy) > (A.r + B.r) * 0.96) continue;
+      ctx.moveTo(A.cx, A.cy);
+      ctx.lineTo(B.cx, B.cy);
+    }
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+//es Un vertiki en alambre.
+//en One vertiki in wireframe.
+function wireBody(c) {
+  //es Su forma de reposo, girada y centrada como está ahora (la del paso 6).
+  //en Its resting shape, turned and centred as it is now (the one from step 6).
+  const cos = Math.cos(c.angle);
+  const sin = Math.sin(c.angle);
+  const gx = new Float32Array(POINTS);
+  const gy = new Float32Array(POINTS);
+  for (let i = 0; i < POINTS; i++) {
+    const qx = UNIT[i * 2] * c.r * (1 + c.e);
+    const qy = UNIT[i * 2 + 1] * c.r * (1 - c.e);
+    gx[i] = c.cx + qx * cos - qy * sin;
+    gy[i] = c.cy + qx * sin + qy * cos;
+  }
+
+  ctx.lineWidth = 1;
+  //es La forma de reposo, discontinua.
+  //en The resting shape, dashed.
+  ctx.strokeStyle = bpInk(0.4);
+  ctx.setLineDash([3, 4]);
+  ctx.beginPath();
+  for (let i = 0; i < POINTS; i++) ctx.lineTo(gx[i], gy[i]);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  //es Los muelles: de cada punto a su sitio en la forma de reposo. Cuanto más aplastado,
+  //es más largos.
+  //en The springs: from each point to its spot on the resting shape. The more squashed, the
+  //en longer they are.
+  ctx.strokeStyle = bpInk(0.55);
+  ctx.beginPath();
+  for (let i = 0; i < POINTS; i++) {
+    ctx.moveTo(c.x[i], c.y[i]);
+    ctx.lineTo(gx[i], gy[i]);
+  }
+  ctx.stroke();
+
+  //es El contorno de verdad, con las mismas curvas que el dibujo normal.
+  //en The real outline, with the same curves as the normal drawing.
+  ctx.strokeStyle = BP_LINE;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo((c.x[POINTS - 1] + c.x[0]) / 2, (c.y[POINTS - 1] + c.y[0]) / 2);
+  for (let i = 0; i < POINTS; i++) {
+    const j = (i + 1) % POINTS;
+    ctx.quadraticCurveTo(c.x[i], c.y[i], (c.x[i] + c.x[j]) / 2, (c.y[i] + c.y[j]) / 2);
+  }
+  ctx.stroke();
+
+  //es Los 28 puntos: nudos huecos.
+  //en The 28 points: hollow nodes.
+  ctx.lineWidth = 1;
+  ctx.fillStyle = BP_PAPER;
+  for (let i = 0; i < POINTS; i++) {
+    ctx.beginPath();
+    ctx.arc(c.x[i], c.y[i], 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  //es El centro (una cruz) y el giro: una cota del centro al borde, en la dirección en la
+  //es que ha girado la forma, con el radio escrito.
+  //en The centre (a cross) and the rotation: a dimension line from the centre to the edge,
+  //en in the direction the shape has turned, with the radius written on it.
+  const k = Math.min(7, c.r * 0.1);
+  ctx.beginPath();
+  ctx.moveTo(c.cx - k, c.cy);
+  ctx.lineTo(c.cx + k, c.cy);
+  ctx.moveTo(c.cx, c.cy - k);
+  ctx.lineTo(c.cx, c.cy + k);
+  ctx.stroke();
+  const ex = c.cx + Math.cos(c.angle) * c.r;
+  const ey = c.cy + Math.sin(c.angle) * c.r;
+  ctx.strokeStyle = bpInk(0.7);
+  ctx.beginPath();
+  ctx.moveTo(c.cx, c.cy);
+  ctx.lineTo(ex, ey);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(ex, ey, 3.5, 0, Math.PI * 2);
+  ctx.stroke();
+
+  //es La ficha: radio y giro, debajo de la cara (en los muy pequeños no cabe).
+  //en The label: radius and rotation, below the face (it doesn't fit on very small ones).
+  if (c.r < 34) return;
+  const deg = Math.round((Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 180) / Math.PI);
+  ctx.font = BP_FONT;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = bpInk(0.75);
+  ctx.fillText(`r ${Math.round(c.r)} · ${deg}°`, c.cx, c.cy + c.r * 0.42);
+}
+
+//es El cajetín del plano, abajo a la derecha, por encima del pie: qué es y con qué números
+//es funciona ahora mismo. En pantallas estrechas no cabe y no se dibuja.
+//en The blueprint's title block, bottom right, above the footer: what it is and the numbers
+//en it's running with right now. On narrow screens it doesn't fit and isn't drawn.
+function blueprintNotes() {
+  if (W < 640) return;
+  const rows = [
+    'VERTIKIS · SOFT BODIES',
+    'VERLET + SHAPE MATCHING',
+    `${cells.length} × ${POINTS} PTS · ${SUBSTEPS} SUBSTEPS`,
+    `K ${STIFFNESS} · G ${GRAVITY} · F ${FRICTION}`,
+    'VERTIK.NET',
+  ];
+  const w = 230;
+  const row = 18;
+  const x = W - w - 16;
+  const y = H - rows.length * row - 44;
+  ctx.fillStyle = BP_PAPER;
+  ctx.fillRect(x, y, w, rows.length * row);
+  ctx.strokeStyle = BP_LINE;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w, rows.length * row);
+  ctx.font = BP_FONT;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  rows.forEach((text, n) => {
+    if (n) {
+      ctx.strokeStyle = bpInk(0.4);
+      ctx.beginPath();
+      ctx.moveTo(x, y + n * row + 0.5);
+      ctx.lineTo(x + w, y + n * row + 0.5);
+      ctx.stroke();
+    }
+    ctx.fillStyle = n === 0 ? BP_LINE : bpInk(0.75);
+    ctx.fillText(text, x + 10, y + n * row + row / 2 + 0.5);
   });
 }
 
@@ -1458,7 +1664,7 @@ function tumbleweed(now) {
   //en the same colour) so it doesn't look like a cut-out circle.
   ctx.save();
   ctx.translate(w.x, w.y);
-  const ink = pixel ? `rgb(${WEED_PX})` : INK;
+  const ink = blueprint ? BP_LINE : pixel ? `rgb(${WEED_PX})` : INK;
   ctx.fillStyle = ink;
   ctx.strokeStyle = ink;
   ctx.lineCap = 'round';
@@ -1560,7 +1766,7 @@ function tumbleweed(now) {
     ctx.arc(0, centerY, R, a0, Math.PI - a0);
     ctx.stroke();
   };
-  if (!pixel) face('#fff', 0);
+  if (!pixel) face(blueprint ? BP_PAPER : '#fff', 0);
   ctx.restore();
   if (pixel) pixelFace(w, w.x, w.y, 0, s, false, false, '#000', now);
 }
