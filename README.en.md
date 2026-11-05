@@ -992,6 +992,8 @@ On a phone, that direction comes from how the phone is tilted.
 
 The `deviceorientation` event gives us two angles: `gamma` (left-right tilt) and `beta` (front-back). Their sine tells us how much gravity pushes along each axis. If the screen is rotated (landscape), we rotate that direction too. And we smooth it (the step 12 pattern again) so it doesn't shake with your pulse.
 
+Many Android tablets have no gyroscope, and then `deviceorientation` arrives with empty angles. As a plan B we also listen to `devicemotion`: its `accelerationIncludingGravity` comes from the accelerometer alone, which every device has, and divided by 9.81 it gives us the same as the sines.
+
 ### The iPhone permission
 
 On iPhone you have to **ask for permission** to read the tilt, and you can only ask inside a user's tap. That's why we ask on the first `pointerdown`, at the same time as we unlock the sound. On Android it works without asking.
@@ -1001,7 +1003,7 @@ On iPhone you have to **ask for permission** to read the tilt, and you can only 
 Gravity is 40 % lower than on a desktop: in your hand, a small screen with strong gravity feels jittery.
 
 ```js
-const touchDevice = window.matchMedia('(pointer: coarse)').matches; // touch screen?
+const touchDevice = navigator.maxTouchPoints > 0 || window.matchMedia('(any-pointer: coarse)').matches; // touch screen?
 const GRAVITY = touchDevice ? 0.27 : 0.45;
 ```
 

@@ -188,7 +188,9 @@
       // Gravedad (px por paso²).
       // Paso 16 · En el móvil, más baja y con la dirección que marque la inclinación del
       // teléfono; en escritorio, siempre hacia abajo. gravX y gravY: su dirección (largo 1).
-      const touchDevice = window.matchMedia('(pointer: coarse)').matches;
+      // Táctil si tiene algún dedo posible: una tablet con lápiz o con teclado puede decir que su
+      // puntero principal es «fino», así que basta con que alguno sea táctil.
+      const touchDevice = navigator.maxTouchPoints > 0 || window.matchMedia('(any-pointer: coarse)').matches;
       const GRAVITY = touchDevice ? 0.27 : 0.45;
       let gravX = 0;
       let gravY = 1;
@@ -796,32 +798,41 @@
       let tiltX = 0;
       let tiltY = 1;
       let tiltListening = false;
+      let hasOrientation = false;
+
+      // x, y: hacia dónde tira la gravedad en el aparato (de −1 a 1), con y hacia abajo.
+      function setTilt(x, y) {
+        // Del aparato a la pantalla, según cómo esté girada.
+        const a = (screen.orientation?.angle ?? window.orientation ?? 0) * (Math.PI / 180);
+        const sx = x * Math.cos(a) + y * Math.sin(a);
+        const sy = -x * Math.sin(a) + y * Math.cos(a);
+        // Casi plano: poca gravedad. Inclinado del todo, como mucho la normal.
+        const len = Math.hypot(sx, sy);
+        tiltX = len > 1 ? sx / len : sx;
+        tiltY = len > 1 ? sy / len : sy;
+      }
 
       function onOrientation(e) {
         if (e.beta === null || e.gamma === null) return;
+        hasOrientation = true;
         const rad = Math.PI / 180;
-        let x = Math.sin(e.gamma * rad);
-        let y = Math.sin(e.beta * rad);
-        // Del aparato a la pantalla, según cómo esté girada.
-        const a = (screen.orientation?.angle ?? 0) * rad;
-        const sx = x * Math.cos(a) + y * Math.sin(a);
-        const sy = -x * Math.sin(a) + y * Math.cos(a);
-        x = sx;
-        y = sy;
-        // Casi plano: poca gravedad. Inclinado del todo, como mucho la normal.
-        const len = Math.hypot(x, y);
-        if (len > 1) {
-          x /= len;
-          y /= len;
-        }
-        tiltX = x;
-        tiltY = y;
+        setTilt(Math.sin(e.gamma * rad), Math.sin(e.beta * rad));
+      }
+
+      // Plan B: muchas tablets Android no tienen giroscopio y «deviceorientation» llega vacío.
+      // El acelerómetro siempre está: «accelerationIncludingGravity» mide la gravedad en m/s²
+      // (al revés: en vertical, y vale +9,8), así que la pasamos a −1…1 y le damos la vuelta a x.
+      function onMotion(e) {
+        const g = e.accelerationIncludingGravity;
+        if (hasOrientation || !g || g.x === null || g.y === null) return;
+        setTilt(-g.x / 9.81, g.y / 9.81);
       }
 
       function listenTilt() {
         if (tiltListening || !touchDevice) return;
         tiltListening = true;
         window.addEventListener('deviceorientation', onOrientation);
+        window.addEventListener('devicemotion', onMotion);
       }
 
       // El iPhone pide permiso, y solo se puede pedir dentro de un toque (ver «pointerdown»).

@@ -993,6 +993,8 @@ En el móvil, esa dirección la marca la inclinación del teléfono.
 
 El evento `deviceorientation` nos da dos ángulos: `gamma` (inclinación izquierda-derecha) y `beta` (adelante-atrás). Su seno nos dice cuánto empuja la gravedad en cada eje. Si la pantalla está girada (en horizontal), giramos también esa dirección. Y la suavizamos (otra vez el patrón del paso 12) para que no tiemble con el pulso.
 
+Muchas tablets Android no tienen giroscopio, y entonces `deviceorientation` llega con los ángulos vacíos. Como plan B escuchamos también `devicemotion`: su `accelerationIncludingGravity` sale solo del acelerómetro, que tienen todos, y dividida entre 9,81 nos da lo mismo que los senos.
+
 ### El permiso del iPhone
 
 En iPhone hay que **pedir permiso** para leer la inclinación, y solo se puede pedir dentro de un toque del usuario. Por eso lo pedimos en el primer `pointerdown`, a la vez que desbloqueamos el sonido. En Android funciona sin pedir nada.
@@ -1002,7 +1004,7 @@ En iPhone hay que **pedir permiso** para leer la inclinación, y solo se puede p
 La gravedad es un 40 % más baja que en escritorio: en la mano, una pantalla pequeña con gravedad fuerte resulta nerviosa.
 
 ```js
-const touchDevice = window.matchMedia('(pointer: coarse)').matches; // ¿pantalla táctil?
+const touchDevice = navigator.maxTouchPoints > 0 || window.matchMedia('(any-pointer: coarse)').matches; // ¿pantalla táctil?
 const GRAVITY = touchDevice ? 0.27 : 0.45;
 ```
 
