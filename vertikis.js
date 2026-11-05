@@ -527,6 +527,7 @@ function frame() {
   // Paso 9 · Varios pasos pequeños de física por fotograma: más estable que uno grande.
   for (let s = 0; s < SUBSTEPS; s++) step();
   draw();
+  tumbleweed(now);
   requestAnimationFrame(frame);
 }
 
@@ -714,6 +715,7 @@ canvas.addEventListener('pointerdown', (e) => {
 
   grabbed = cellAt(e.clientX, e.clientY);
   press = grabbed && { cell: grabbed, t: performance.now(), x: e.clientX, y: e.clientY };
+  if (!grabbed && grabWeed(e)) return;
   if (!grabbed) return;
   grabOffset = { x: e.clientX - grabbed.cx, y: e.clientY - grabbed.cy };
   // El agarrado pasa a dibujarse encima de los demás.
@@ -745,6 +747,7 @@ function release(e) {
     g.thrownUntil = performance.now() + 1500;
     g.touching = new Set(cells.filter((k) => k !== g && Math.hypot(k.cx - g.cx, k.cy - g.cy) <= (k.r + g.r) * 0.92));
   }
+  weedGrab = null;
   grabbed = null;
   canvas.classList.remove('is-dragging');
 }
@@ -756,6 +759,7 @@ canvas.addEventListener('pointercancel', () => release());
 function updateHover() {
   hovered = mouseInside ? cellAt(pointer.x, pointer.y) : null;
   canvas.classList.toggle('is-over', !!hovered);
+  if (mouseInside && weedAt(pointer.x, pointer.y)) canvas.classList.add('is-over');
 }
 
 // =========================================================================================
@@ -822,6 +826,153 @@ function updateGravity() {
   if (!tiltListening) return;
   gravX += (tiltX - gravX) * 0.1;
   gravY += (tiltY - gravY) * 0.1;
+}
+
+// =========================================================================================
+// Extra (no sale en el tutorial) · Si no queda ningún vertiki, a los 2 s cruza la pantalla
+// un estepicursor negro rodando de izquierda a derecha, dando botecitos.
+// =========================================================================================
+
+let emptySince = null;
+let weed = null;
+let weedNextAt = 0;
+let weedGrab = null;
+
+function makeWeed() {
+  const r = Math.max(26, Math.min(56, Math.min(W, H) * 0.07));
+  // Una maraña: trozos de óvalos al azar que no se salen del círculo, más unas ramitas que
+  // asoman.
+  const curves = [];
+  for (let i = 0; i < 22; i++) {
+    const rr = r * (0.35 + Math.random() * 0.5);
+    const a = Math.random() * Math.PI * 2;
+    const d = Math.random() * (r - rr);
+    curves.push({
+      x: Math.cos(a) * d, y: Math.sin(a) * d, rx: rr, ry: rr * (0.55 + Math.random() * 0.45),
+      tilt: Math.random() * Math.PI, from: Math.random() * Math.PI * 2, len: Math.PI * (0.8 + Math.random() * 1.1),
+    });
+  }
+  const twigs = [];
+  for (let i = 0; i < 9; i++) {
+    const a = Math.random() * Math.PI * 2;
+    twigs.push([a, r * (0.75 + Math.random() * 0.15), r * (1.05 + Math.random() * 0.2)]);
+  }
+  return {
+    x: -r * 1.4, y: H - r, vy: 0, rot: 0, r, speed: 3.2 + Math.random(), curves, twigs,
+    lookX: 0, lookY: 0, blinkAt: performance.now() + 1500, smile: 0, smileV: 0,
+  };
+}
+
+// ¿El puntero está sobre el estepicursor?
+const weedAt = (x, y) => weed && Math.hypot(x - weed.x, y - weed.y) < weed.r * 1.1;
+
+// Agarrarlo: mientras lo arrastras se queda contigo; al soltarlo sigue rodando.
+function grabWeed(e) {
+  if (!weedAt(e.clientX, e.clientY)) return false;
+  weedGrab = { x: e.clientX - weed.x, y: e.clientY - weed.y };
+  canvas.setPointerCapture(e.pointerId);
+  canvas.classList.add('is-dragging');
+  return true;
+}
+
+function tumbleweed(now) {
+  // Sale a los 2 s de quedarse sin vertikis y, si nadie crea uno, vuelve 6 s después de irse.
+  if (cells.length > 0) {
+    emptySince = null;
+  } else if (emptySince === null) {
+    emptySince = now;
+    weedNextAt = now + 2000;
+  } else if (!weed && now > weedNextAt) {
+    weed = makeWeed();
+  }
+  if (!weed) return;
+
+  const w = weed;
+  if (weedGrab) {
+    w.x = pointer.x - weedGrab.x;
+    w.y = Math.min(H - w.r, pointer.y - weedGrab.y);
+    w.vy = 0;
+  } else {
+    w.x += w.speed;
+    w.rot += w.speed / w.r;
+    w.vy += 0.35;
+    w.y += w.vy;
+    if (w.y > H - w.r) {
+      w.y = H - w.r;
+      w.vy = -(1.5 + Math.random() * 3.5);
+    }
+    if (w.x - w.r * 1.4 > W) {
+      weed = null;
+      weedNextAt = now + 6000;
+      return;
+    }
+  }
+
+  // La maraña, que gira al rodar.
+  ctx.save();
+  ctx.translate(w.x, w.y);
+  ctx.save();
+  ctx.rotate(w.rot);
+  ctx.strokeStyle = INK;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = Math.max(1.1, w.r / 32);
+  ctx.beginPath();
+  for (const c of w.curves) {
+    ctx.moveTo(c.x + Math.cos(c.tilt) * Math.cos(c.from) * c.rx - Math.sin(c.tilt) * Math.sin(c.from) * c.ry,
+      c.y + Math.sin(c.tilt) * Math.cos(c.from) * c.rx + Math.cos(c.tilt) * Math.sin(c.from) * c.ry);
+    ctx.ellipse(c.x, c.y, c.rx, c.ry, c.tilt, c.from, c.from + c.len);
+  }
+  for (const [a, from, to] of w.twigs) {
+    ctx.moveTo(Math.cos(a) * from, Math.sin(a) * from);
+    ctx.lineTo(Math.cos(a + 0.12) * to, Math.sin(a + 0.12) * to);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  // La cara de los vertikis (siempre derecha): ojos que miran al puntero y parpadean, y una
+  // sonrisa que crece con el ratón encima. Con un borde claro para que se vea sobre lo negro.
+  const s = w.r * 1.15;
+  let lx = 0;
+  let ly = 0;
+  if (pointerSeen) {
+    const d = Math.hypot(pointer.x - w.x, pointer.y - w.y) || 1;
+    lx = ((pointer.x - w.x) / d) * 0.035;
+    ly = ((pointer.y - w.y) / d) * 0.035;
+  }
+  w.lookX += (lx - w.lookX) * 0.15;
+  w.lookY += (ly - w.lookY) * 0.15;
+  if (now > w.blinkAt + 130) w.blinkAt = now + (Math.random() < 0.2 ? 180 : 2000 + Math.random() * 4000);
+  const want = weedGrab || (mouseInside && weedAt(pointer.x, pointer.y)) ? 1 : 0;
+  w.smileV = (w.smileV + (want - w.smile) * 0.22) * 0.68;
+  w.smile += w.smileV;
+
+  const eye = Math.max(1, s * 0.036);
+  const t = (now - w.blinkAt) / 130;
+  const open = t >= 0 && t <= 1 ? Math.abs(1 - 2 * t) : 1;
+  const k = w.smile;
+  const mw = s * 0.16;
+  const mh = Math.max(0.05, mw * (0.32 + 0.5 * k));
+  const top = s * 0.06;
+  const R = (mw * mw + mh * mh) / (2 * mh);
+  const centerY = top + mh - R;
+  const a0 = Math.asin(Math.min(1, (top - centerY) / R));
+  const face = (color, grow) => {
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1, s * 0.032) + grow * 2;
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(side * s * 0.22 + w.lookX * s, -s * 0.12 + w.lookY * s, eye + grow, Math.max(0.4, eye * open) + grow, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(0, centerY, R, a0, Math.PI - a0);
+    ctx.stroke();
+  };
+  face('#fff', Math.max(3, s * 0.08));
+  face(INK, 0);
+  ctx.restore();
 }
 
 // =========================================================================================

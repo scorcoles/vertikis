@@ -1053,6 +1053,7 @@ You don't need this to learn or play with vertikis. It's only for whoever change
 - `//>> 4` … `//<<`: this chunk appears from step 4 on. `//>> 4-8`: only in steps 4 to 8.
 - `code // @4` or `code // @4-8`: the same, for a single line.
 - `//es texto` and `//en text`: a comment in each language.
+- `//>> 17` … `//<<` (or `// @17`): only in the final `vertikis.js`, not in the tutorial (surprises).
 
 After changing it, regenerate everything with:
 

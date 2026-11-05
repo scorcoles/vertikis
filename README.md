@@ -1054,6 +1054,7 @@ Para aprender o jugar con vertikis no necesitas esto. Es solo para quien cambie 
 - `//>> 4` … `//<<`: este trozo aparece a partir del paso 4. `//>> 4-8`: solo en los pasos 4 a 8.
 - `código // @4` o `código // @4-8`: lo mismo, para una sola línea.
 - `//es texto` y `//en text`: un comentario en cada idioma.
+- `//>> 17` … `//<<` (o `// @17`): solo en el `vertikis.js` final, no en el tutorial (sorpresas).
 
 Después de cambiarlo, genera todo con:
 

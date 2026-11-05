@@ -15,6 +15,8 @@
 //   código  // @4-8        línea solo en los pasos 4 a 8 / line only in steps 4 to 8
 //   //es texto · //en text   comentario en un idioma / comment in one language
 //   //es@4 texto            comentario en un idioma desde el paso 4 (también @4-8)
+//   //>> 17 … //<<  (o // @17)  solo en el vertikis.js final, no en el tutorial
+//                            / only in the final vertikis.js, not in the tutorial
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -169,7 +171,7 @@ ${code}    </script>
 `;
 }
 
-writeFileSync(join(root, 'vertikis.js'), render(LAST, 'es'));
+writeFileSync(join(root, 'vertikis.js'), render(LAST + 1, 'es'));
 for (const lang of ['es', 'en']) {
   mkdirSync(join(root, 'steps', lang), { recursive: true });
   for (let s = 1; s <= LAST; s++) writeFileSync(join(root, 'steps', lang, `${pad(s)}.html`), page(s, lang));
