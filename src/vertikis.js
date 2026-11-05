@@ -305,8 +305,10 @@ function fitShape(c) {
   for (let i = 0; i < POINTS; i++) {
     const qx = UNIT[i * 2] * c.r; // @6-9
     const qy = UNIT[i * 2 + 1] * c.r; // @6-9
-    const qx = UNIT[i * 2] * c.r * (1 + c.e); // @10
-    const qy = UNIT[i * 2 + 1] * c.r * (1 - c.e); // @10
+    const qx = UNIT[i * 2] * c.r * (1 + c.e); // @10-16
+    const qy = UNIT[i * 2 + 1] * c.r * (1 - c.e); // @10-16
+    const qx = UNIT[i * 2] * c.r * (1 + oval(c)); // @17
+    const qy = UNIT[i * 2 + 1] * c.r * (1 - oval(c)); // @17
     const rx = c.x[i] - c.cx;
     const ry = c.y[i] - c.cy;
     dot += qx * rx + qy * ry;
@@ -371,8 +373,10 @@ function step() {
     for (let i = 0; i < POINTS; i++) {
       const qx = UNIT[i * 2] * c.r; // @6-9
       const qy = UNIT[i * 2 + 1] * c.r; // @6-9
-      const qx = UNIT[i * 2] * c.r * (1 + c.e); // @10
-      const qy = UNIT[i * 2 + 1] * c.r * (1 - c.e); // @10
+      const qx = UNIT[i * 2] * c.r * (1 + c.e); // @10-16
+      const qy = UNIT[i * 2 + 1] * c.r * (1 - c.e); // @10-16
+      const qx = UNIT[i * 2] * c.r * (1 + oval(c)); // @17
+      const qy = UNIT[i * 2 + 1] * c.r * (1 - oval(c)); // @17
       //es Dónde «debería» estar este punto.
       //en Where this point «should» be.
       const gx = c.cx + qx * cos - qy * sin;
@@ -1529,8 +1533,8 @@ function wireBody(c) {
   const gx = new Float32Array(POINTS);
   const gy = new Float32Array(POINTS);
   for (let i = 0; i < POINTS; i++) {
-    const qx = UNIT[i * 2] * c.r * (1 + c.e);
-    const qy = UNIT[i * 2 + 1] * c.r * (1 - c.e);
+    const qx = UNIT[i * 2] * c.r * (1 + oval(c));
+    const qy = UNIT[i * 2 + 1] * c.r * (1 - oval(c));
     gx[i] = c.cx + qx * cos - qy * sin;
     gy[i] = c.cy + qx * sin + qy * cos;
   }
@@ -1664,15 +1668,21 @@ function wireNotes() {
 //en =========================================================================================
 
 let yugop = false;
-//es En el modo yugop flotan, redondos y casi sin aplastarse, como en el original: la
-//es gravedad a un 5 % (caen muy despacio) y la rigidez casi al doble. Y cada pocos segundos
-//es uno desaparece (se encoge hasta nada, con un «fiu») o aparece otro en un hueco (crece
-//es desde nada, con un «tic tic»): como los nuevos nacen donde hay sitio, se reparten por toda la pantalla.
-//en In yugop mode they float, round and barely squashing, as in the original: gravity at
-//en 5 % (they sink very slowly) and almost twice the stiffness. And every few seconds one
-//en vanishes (shrinks to nothing, with a «fwip») or another appears in a gap (grows from
-//en nothing, with a «tick tick»): since new ones are born where there's room, they spread across the screen.
-const YUGOP = { gravity: 0.05, stiffness: 0.8, every: [1800, 4200] };
+
+//es Cuánto se ovala la forma de reposo: en yugop, menos de la mitad (casi redondos, pero
+//es no círculos perfectos).
+//en How oval the resting shape is: in yugop, less than half (nearly round, but not perfect
+//en circles).
+const oval = (c) => (yugop ? c.e * 0.4 : c.e);
+//es En el modo yugop flotan casi redondos, como en el original: la gravedad a un 5 % (caen
+//es muy despacio) y algo más de rigidez (se aplastan poco, pero se aplastan). Y cada pocos
+//es segundos uno desaparece (se encoge hasta nada, con un «fiu») o aparece otro en un hueco
+//es entre los demás (crece desde nada, con un «tic tic», y los empuja para hacerse sitio).
+//en In yugop mode they float almost round, as in the original: gravity at 5 % (they sink
+//en very slowly) and a bit more stiffness (they squash a little, but they do). And every few
+//en seconds one vanishes (shrinks to nothing, with a «fwip») or another appears in a gap
+//en between the others (grows from nothing, with a «tick tick», pushing them to make room).
+const YUGOP = { gravity: 0.05, stiffness: 0.62, every: [1800, 4200] };
 let yugopBase = 0;
 let yugopNextAt = 0;
 
@@ -1706,14 +1716,29 @@ function yugopLife(now) {
     if (unlocked) tone(640 - Math.min(260, c.r * 1.4), 150, 0.24, 0.1, 'triangle');
     return;
   }
-  //es Aparecer: un sitio libre al azar (unos cuantos intentos), y crece desde casi nada.
-  //en Appearing: a free spot at random (a few tries), and it grows from almost nothing.
+  //es Aparecer: en un hueco entre los demás (un punto fuera de todos pero cerca de alguno),
+  //es no en el cielo vacío. Nace casi sin tamaño y, al crecer, empuja a sus vecinos para
+  //es hacerse sitio. Si no hay ningún hueco así, en cualquier sitio libre.
+  //en Appearing: in a gap between the others (a point outside all of them but close to one),
+  //en not in the empty sky. It's born almost sizeless and, as it grows, pushes its neighbours
+  //en aside to make room. If there's no such gap, anywhere free.
   const unit = Math.min(W, H);
-  for (let tries = 0; tries < 30; tries++) {
-    const r = unit * (0.09 + Math.random() ** 1.3 * 0.12);
-    const x = r + Math.random() * (W - r * 2);
-    const y = r + Math.random() * (H - r * 2);
-    if (cells.some((k) => Math.hypot(k.cx - x, k.cy - y) < (k.r + r) * 0.9)) continue;
+  const r = unit * (0.09 + Math.random() ** 1.3 * 0.12);
+  const gaps = [];
+  const free = [];
+  for (let tries = 0; tries < 60; tries++) {
+    const px = r * 0.5 + Math.random() * (W - r);
+    const py = r * 0.5 + Math.random() * (H - r);
+    //es Distancia al borde del vertiki más cercano (negativa si cae dentro de uno).
+    //en Distance to the edge of the nearest vertiki (negative if it falls inside one).
+    let clear = Infinity;
+    for (const k of cells) clear = Math.min(clear, Math.hypot(k.cx - px, k.cy - py) - k.r);
+    if (clear <= 0) continue;
+    (clear < r * 0.6 ? gaps : free).push({ px, py });
+  }
+  const spot = (gaps.length ? gaps : free)[Math.floor(Math.random() * (gaps.length || free.length))];
+  if (spot) {
+    const { px: x, py: y } = spot;
     const c = makeCell(x, y, r * 0.05);
     c.target = r;
     c.rest = r;
@@ -1724,10 +1749,8 @@ function yugopLife(now) {
       tone(1900, 1500, 0.03, 0.09, 'square');
       setTimeout(() => tone(2300, 1800, 0.03, 0.08, 'square'), 85);
     }
-    return;
   }
 }
-
 
 function yugopCrosses(c) {
   //es El ecuador: la línea que pasa por el centro con el giro del cuerpo (desde cómo nació,

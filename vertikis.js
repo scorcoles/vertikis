@@ -190,8 +190,8 @@ function fitShape(c) {
   let dot = 0;
   let cross = 0;
   for (let i = 0; i < POINTS; i++) {
-    const qx = UNIT[i * 2] * c.r * (1 + c.e);
-    const qy = UNIT[i * 2 + 1] * c.r * (1 - c.e);
+    const qx = UNIT[i * 2] * c.r * (1 + oval(c));
+    const qy = UNIT[i * 2 + 1] * c.r * (1 - oval(c));
     const rx = c.x[i] - c.cx;
     const ry = c.y[i] - c.cy;
     dot += qx * rx + qy * ry;
@@ -237,8 +237,8 @@ function step() {
     const cos = Math.cos(c.angle);
     const sin = Math.sin(c.angle);
     for (let i = 0; i < POINTS; i++) {
-      const qx = UNIT[i * 2] * c.r * (1 + c.e);
-      const qy = UNIT[i * 2 + 1] * c.r * (1 - c.e);
+      const qx = UNIT[i * 2] * c.r * (1 + oval(c));
+      const qy = UNIT[i * 2 + 1] * c.r * (1 - oval(c));
       // Dónde «debería» estar este punto.
       const gx = c.cx + qx * cos - qy * sin;
       const gy = c.cy + qx * sin + qy * cos;
@@ -1169,8 +1169,8 @@ function wireBody(c) {
   const gx = new Float32Array(POINTS);
   const gy = new Float32Array(POINTS);
   for (let i = 0; i < POINTS; i++) {
-    const qx = UNIT[i * 2] * c.r * (1 + c.e);
-    const qy = UNIT[i * 2 + 1] * c.r * (1 - c.e);
+    const qx = UNIT[i * 2] * c.r * (1 + oval(c));
+    const qy = UNIT[i * 2 + 1] * c.r * (1 - oval(c));
     gx[i] = c.cx + qx * cos - qy * sin;
     gy[i] = c.cy + qx * sin + qy * cos;
   }
@@ -1289,11 +1289,15 @@ function wireNotes() {
 // =========================================================================================
 
 let yugop = false;
-// En el modo yugop flotan, redondos y casi sin aplastarse, como en el original: la
-// gravedad a un 5 % (caen muy despacio) y la rigidez casi al doble. Y cada pocos segundos
-// uno desaparece (se encoge hasta nada, con un «fiu») o aparece otro en un hueco (crece
-// desde nada, con un «tic tic»): como los nuevos nacen donde hay sitio, se reparten por toda la pantalla.
-const YUGOP = { gravity: 0.05, stiffness: 0.8, every: [1800, 4200] };
+
+// Cuánto se ovala la forma de reposo: en yugop, menos de la mitad (casi redondos, pero
+// no círculos perfectos).
+const oval = (c) => (yugop ? c.e * 0.4 : c.e);
+// En el modo yugop flotan casi redondos, como en el original: la gravedad a un 5 % (caen
+// muy despacio) y algo más de rigidez (se aplastan poco, pero se aplastan). Y cada pocos
+// segundos uno desaparece (se encoge hasta nada, con un «fiu») o aparece otro en un hueco
+// entre los demás (crece desde nada, con un «tic tic», y los empuja para hacerse sitio).
+const YUGOP = { gravity: 0.05, stiffness: 0.62, every: [1800, 4200] };
 let yugopBase = 0;
 let yugopNextAt = 0;
 
@@ -1324,13 +1328,25 @@ function yugopLife(now) {
     if (unlocked) tone(640 - Math.min(260, c.r * 1.4), 150, 0.24, 0.1, 'triangle');
     return;
   }
-  // Aparecer: un sitio libre al azar (unos cuantos intentos), y crece desde casi nada.
+  // Aparecer: en un hueco entre los demás (un punto fuera de todos pero cerca de alguno),
+  // no en el cielo vacío. Nace casi sin tamaño y, al crecer, empuja a sus vecinos para
+  // hacerse sitio. Si no hay ningún hueco así, en cualquier sitio libre.
   const unit = Math.min(W, H);
-  for (let tries = 0; tries < 30; tries++) {
-    const r = unit * (0.09 + Math.random() ** 1.3 * 0.12);
-    const x = r + Math.random() * (W - r * 2);
-    const y = r + Math.random() * (H - r * 2);
-    if (cells.some((k) => Math.hypot(k.cx - x, k.cy - y) < (k.r + r) * 0.9)) continue;
+  const r = unit * (0.09 + Math.random() ** 1.3 * 0.12);
+  const gaps = [];
+  const free = [];
+  for (let tries = 0; tries < 60; tries++) {
+    const px = r * 0.5 + Math.random() * (W - r);
+    const py = r * 0.5 + Math.random() * (H - r);
+    // Distancia al borde del vertiki más cercano (negativa si cae dentro de uno).
+    let clear = Infinity;
+    for (const k of cells) clear = Math.min(clear, Math.hypot(k.cx - px, k.cy - py) - k.r);
+    if (clear <= 0) continue;
+    (clear < r * 0.6 ? gaps : free).push({ px, py });
+  }
+  const spot = (gaps.length ? gaps : free)[Math.floor(Math.random() * (gaps.length || free.length))];
+  if (spot) {
+    const { px: x, py: y } = spot;
     const c = makeCell(x, y, r * 0.05);
     c.target = r;
     c.rest = r;
@@ -1340,7 +1356,6 @@ function yugopLife(now) {
       tone(1900, 1500, 0.03, 0.09, 'square');
       setTimeout(() => tone(2300, 1800, 0.03, 0.08, 'square'), 85);
     }
-    return;
   }
 }
 
