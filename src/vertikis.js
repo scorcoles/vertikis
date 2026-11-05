@@ -827,17 +827,19 @@ function popSound(size) {
 //en Creating: a rising «bloop», like a bubble being born (lower the bigger it is).
 const createSound = (size) => tone(220 - Math.min(100, size / 2), 720 - Math.min(300, size), 0.14, 0.24);
 
-//es Choque de un lanzado contra otro: «toc» grave y muy suave, más fuerte cuanto más rápido
+//es Choque de un lanzado contra otro: «toc» grave y suave, más fuerte cuanto más rápido
 //es llega y más grave cuanto más grande es el pequeño de los dos.
-//en A thrown one hitting another: a low, very soft «tock», louder the faster it arrives and
+//en A thrown one hitting another: a low, soft «tock», louder the faster it arrives and
 //en lower the bigger the smaller of the two is.
 let lastBump = 0;
 function bump(speed, size) {
   const now = performance.now();
-  if (speed < 1.3 || now - lastBump < 60) return;
+  if (speed < 0.5 || now - lastBump < 60) return;
   lastBump = now;
   const f = Math.max(90, Math.min(260, 16000 / size));
-  tone(f, f * 0.6, 0.09, Math.min(0.1, speed * 0.0075));
+  //es De casi un susurro (choque lento) a bastante más fuerte (choque rápido).
+  //en From almost a whisper (slow hit) to quite a bit louder (fast hit).
+  tone(f, f * 0.6, 0.09, Math.min(0.22, 0.02 + speed * 0.013));
 }
 //<<
 
@@ -1005,9 +1007,9 @@ function release(e) {
   press = null;
   //<<
   //>> 15
-  //es Paso 15 · Si sale lanzado con fuerza, sus choques suenan durante 1,5 s.
-  //en Step 15 · If it's thrown hard enough, its impacts make a sound for 1.5 s.
-  if (grabbed && Math.hypot(grabbed.vx, grabbed.vy) > 2) {
+  //es Paso 15 · Si sale lanzado (aunque sea flojito), sus choques suenan durante 1,5 s.
+  //en Step 15 · If it's thrown (even gently), its impacts make a sound for 1.5 s.
+  if (grabbed && Math.hypot(grabbed.vx, grabbed.vy) > 0.8) {
     const g = grabbed;
     g.thrownUntil = performance.now() + 1500;
     g.touching = new Set(cells.filter((k) => k !== g && Math.hypot(k.cx - g.cx, k.cy - g.cy) <= (k.r + g.r) * 0.92));
