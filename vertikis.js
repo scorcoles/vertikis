@@ -1458,22 +1458,27 @@ function risoFaceInk(c) {
   ctx.fillStyle = ctx.strokeStyle = ink === 2 ? RISO_PAPER : RISO_INKS[1 - ink];
 }
 
-// El grano: motitas del color del papel encima de todo (la tinta no cubre del todo),
-// en un patrón de 160 × 160 que se repite. Se hace una vez.
+// El grano: motitas del color del papel encima de todo (la tinta no cubre del todo), en un
+// patrón que se repite. Se hace a la resolución real de la pantalla (en retina, dos
+// píxeles por cada píxel CSS), con motitas de un píxel real: fino, como el de una riso.
 let risoPattern = null;
+let risoPatternScale = 0;
 function risoGrain() {
   ctx.globalCompositeOperation = 'source-over';
-  if (!risoPattern) {
+  const dpr = canvas.width / W || 1;
+  if (!risoPattern || risoPatternScale !== dpr) {
+    const size = 256;
     const g = document.createElement('canvas');
-    g.width = g.height = 160;
+    g.width = g.height = size;
     const gx = g.getContext('2d');
     gx.fillStyle = RISO_PAPER;
-    for (let n = 0; n < 1400; n++) {
-      gx.globalAlpha = 0.25 + Math.random() * 0.5;
-      const size = Math.random() < 0.85 ? 1 : 2;
-      gx.fillRect(Math.floor(Math.random() * 160), Math.floor(Math.random() * 160), size, size);
+    for (let n = 0; n < 4200; n++) {
+      gx.globalAlpha = 0.2 + Math.random() * 0.5;
+      gx.fillRect(Math.floor(Math.random() * size), Math.floor(Math.random() * size), 1, 1);
     }
     risoPattern = ctx.createPattern(g, 'repeat');
+    risoPattern.setTransform(new DOMMatrix().scale(1 / dpr));
+    risoPatternScale = dpr;
   }
   ctx.fillStyle = risoPattern;
   ctx.fillRect(0, 0, W, H);
