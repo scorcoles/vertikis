@@ -197,6 +197,11 @@ canvas.is-dragging {
     display: none;
   }
 
+  /* El pie, con el mismo margen a izquierda y derecha: el texto no llega al borde. */
+  .credit {
+    right: 8px;
+  }
+
   /* La tira de riso y wire ocupa todo el ancho: el mismo margen a cada lado. */
   .is-riso .credit,
   .is-wire .credit {
