@@ -351,6 +351,7 @@ function draw() {
     g.addColorStop(0.55, c.color);
     g.addColorStop(1, pixel ? c.shadePx : c.shade);
     ctx.fillStyle = g;
+    if (yugop) ctx.fillStyle = '#000';
     // Paso 3 · Contorno suave: curvas que pasan por los puntos medios del anillo.
     ctx.beginPath();
     const mx = (c.x[POINTS - 1] + c.x[0]) / 2;
@@ -378,6 +379,7 @@ function draw() {
     const surprised = !squint && now < c.surprisedUntil;
     const tilt = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
     if (pixel) { pixelFace(c, c.cx, c.cy, tilt, s, squint, surprised, '#000', now); continue; }
+    if (yugop) { yugopCrosses(c); continue; }
     ctx.save();
     ctx.translate(c.cx, c.cy);
     // La cara se inclina con lo que gira el cuerpo, pero amortiguado (×0,35): reacciona al
@@ -436,6 +438,7 @@ function draw() {
   for (const d of drops) {
     ctx.fillStyle = d.color;
     if (blueprint) ctx.fillStyle = BP_LINE;
+    if (yugop) ctx.fillStyle = '#000';
     ctx.beginPath();
     ctx.arc(d.x, d.y, Math.max(0.1, d.r * d.life), 0, Math.PI * 2);
     ctx.fill();
@@ -863,25 +866,27 @@ window.vertikis = {
     const wasPixel = !!pixel;
     pixel = name === 'pixel' ? pixelSize() : 0;
     blueprint = name === 'blueprint';
+    yugop = name === 'yugop';
     if (pixel) loadPixelFonts();
     document.documentElement.classList.toggle('is-pixel', !!pixel);
     document.documentElement.classList.toggle('is-blueprint', blueprint);
+    document.documentElement.classList.toggle('is-yugop', yugop);
     // El modo píxel cambia la resolución del canvas: hay que rehacerlo al entrar y al salir.
     if (wasPixel !== !!pixel) resize();
     // La dirección lleva la visualización (#pixel, #blueprint), para poder compartirla.
     // Sin historial: cambiar de modo no llena el botón «atrás».
     const hash = name === 'normal' ? '' : `#${name}`;
     if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
-    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, blueprint: '⌗ blueprint' }[name];
+    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, blueprint: '⌗ blueprint', yugop: '+ yugop' }[name];
   },
 };
 
 // Las visualizaciones, en el orden en que pasa por ellas el doble clic en «vertikis».
 // Para añadir una: su nombre aquí y lo que dibuje en draw().
-const MODES = ['normal', 'pixel', 'blueprint'];
-const currentMode = () => (blueprint ? 'blueprint' : pixel ? 'pixel' : 'normal');
+const MODES = ['normal', 'pixel', 'blueprint', 'yugop'];
+const currentMode = () => (yugop ? 'yugop' : blueprint ? 'blueprint' : pixel ? 'pixel' : 'normal');
 
-// Al abrir una dirección con #pixel o #blueprint (o al cambiarla a mano), se pone esa
+// Al abrir una dirección con #pixel, #blueprint o #yugop (o al cambiarla a mano), se pone esa
 // visualización. Va en una microtarea: cuando el escenario ya está montado.
 const modeFromHash = () => {
   const name = decodeURIComponent(location.hash.slice(1));
@@ -1246,6 +1251,38 @@ function blueprintNotes() {
     ctx.fillStyle = n === 0 ? BP_LINE : bpInk(0.75);
     ctx.fillText(text, x + 10, y + n * row + row / 2 + 0.5);
   });
+}
+
+// =========================================================================================
+// Extra · Modo yugop: como la home de yugop.com (Yugo Nakamura, 2005), a la que rinden
+// homenaje los vertikis. Cuerpos negros y lisos sobre blanco, sin cara, y en su ecuador
+// dos crucecitas blancas, una a cada lado, que giran con el cuerpo.
+// =========================================================================================
+
+let yugop = false;
+
+function yugopCrosses(c) {
+  // El ecuador: la línea que pasa por el centro con el giro del cuerpo (desde cómo nació,
+  // para que empiece en horizontal). Las cruces, a un 72 % del radio.
+  const a = c.angle - c.base;
+  const dx = Math.cos(a) * c.r * 0.72;
+  const dy = Math.sin(a) * c.r * 0.72;
+  const k = Math.max(2.5, c.r * 0.028);
+  ctx.save();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1;
+  ctx.lineCap = 'butt';
+  ctx.beginPath();
+  for (const side of [-1, 1]) {
+    const x = c.cx + dx * side;
+    const y = c.cy + dy * side;
+    ctx.moveTo(x - k, y);
+    ctx.lineTo(x + k, y);
+    ctx.moveTo(x, y - k);
+    ctx.lineTo(x, y + k);
+  }
+  ctx.stroke();
+  ctx.restore();
 }
 
 let emptySince = null;

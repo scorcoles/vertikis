@@ -104,3 +104,16 @@ canvas.is-dragging {
   background: #eaf2ff;
   color: #1d4a86;
 }
+
+/* Modo yugop (vertikis.mode('yugop') o #yugop): cuerpos negros sobre blanco, como la home de
+   yugop.com. El pie se fusiona por diferencia: blanco sobre los cuerpos, negro sobre el
+   blanco, y siempre se lee. */
+.is-yugop .credit {
+  color: #fff;
+  mix-blend-mode: difference;
+}
+
+.is-yugop .credit__tag {
+  background: #fff;
+  color: #000;
+}

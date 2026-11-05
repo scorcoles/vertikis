@@ -518,6 +518,7 @@ function draw() {
     g.addColorStop(1, c.shade); // @10-16
     g.addColorStop(1, pixel ? c.shadePx : c.shade); // @17
     ctx.fillStyle = g;
+    if (yugop) ctx.fillStyle = '#000'; // @17
     //<<
     //es Paso 3 · Contorno suave: curvas que pasan por los puntos medios del anillo.
     //en Step 3 · Smooth outline: curves through the midpoints of the ring.
@@ -561,6 +562,7 @@ function draw() {
     const surprised = !squint && now < c.surprisedUntil;
     const tilt = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35; // @17
     if (pixel) { pixelFace(c, c.cx, c.cy, tilt, s, squint, surprised, '#000', now); continue; } // @17
+    if (yugop) { yugopCrosses(c); continue; } // @17
     ctx.save();
     ctx.translate(c.cx, c.cy);
     //es La cara se inclina con lo que gira el cuerpo, pero amortiguado (×0,35): reacciona al
@@ -631,6 +633,7 @@ function draw() {
   for (const d of drops) {
     ctx.fillStyle = d.color;
     if (blueprint) ctx.fillStyle = BP_LINE; // @17
+    if (yugop) ctx.fillStyle = '#000'; // @17
     ctx.beginPath();
     ctx.arc(d.x, d.y, Math.max(0.1, d.r * d.life), 0, Math.PI * 2);
     ctx.fill();
@@ -1171,9 +1174,11 @@ window.vertikis = {
     const wasPixel = !!pixel;
     pixel = name === 'pixel' ? pixelSize() : 0;
     blueprint = name === 'blueprint';
+    yugop = name === 'yugop';
     if (pixel) loadPixelFonts();
     document.documentElement.classList.toggle('is-pixel', !!pixel);
     document.documentElement.classList.toggle('is-blueprint', blueprint);
+    document.documentElement.classList.toggle('is-yugop', yugop);
     //es El modo píxel cambia la resolución del canvas: hay que rehacerlo al entrar y al salir.
     //en Pixel mode changes the canvas resolution: it has to be redone going in and out.
     if (wasPixel !== !!pixel) resize();
@@ -1183,7 +1188,7 @@ window.vertikis = {
     //en Without history: switching modes doesn't fill up the «back» button.
     const hash = name === 'normal' ? '' : `#${name}`;
     if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
-    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, blueprint: '⌗ blueprint' }[name];
+    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, blueprint: '⌗ blueprint', yugop: '+ yugop' }[name];
   },
 };
 
@@ -1191,12 +1196,12 @@ window.vertikis = {
 //es Para añadir una: su nombre aquí y lo que dibuje en draw().
 //en The visualisations, in the order the double-click on «vertikis» goes through them. To
 //en add one: its name here and whatever it draws in draw().
-const MODES = ['normal', 'pixel', 'blueprint'];
-const currentMode = () => (blueprint ? 'blueprint' : pixel ? 'pixel' : 'normal');
+const MODES = ['normal', 'pixel', 'blueprint', 'yugop'];
+const currentMode = () => (yugop ? 'yugop' : blueprint ? 'blueprint' : pixel ? 'pixel' : 'normal');
 
-//es Al abrir una dirección con #pixel o #blueprint (o al cambiarla a mano), se pone esa
+//es Al abrir una dirección con #pixel, #blueprint o #yugop (o al cambiarla a mano), se pone esa
 //es visualización. Va en una microtarea: cuando el escenario ya está montado.
-//en Opening an address with #pixel or #blueprint (or changing it by hand) switches to that
+//en Opening an address with #pixel, #blueprint or #yugop (or changing it by hand) switches to that
 //en visualisation. It runs in a microtask: once the stage is set up.
 const modeFromHash = () => {
   const name = decodeURIComponent(location.hash.slice(1));
@@ -1604,6 +1609,45 @@ function blueprintNotes() {
     ctx.fillStyle = n === 0 ? BP_LINE : bpInk(0.75);
     ctx.fillText(text, x + 10, y + n * row + row / 2 + 0.5);
   });
+}
+
+//es =========================================================================================
+//es Extra · Modo yugop: como la home de yugop.com (Yugo Nakamura, 2005), a la que rinden
+//es homenaje los vertikis. Cuerpos negros y lisos sobre blanco, sin cara, y en su ecuador
+//es dos crucecitas blancas, una a cada lado, que giran con el cuerpo.
+//es =========================================================================================
+//en =========================================================================================
+//en Extra · yugop mode: like the yugop.com home page (Yugo Nakamura, 2005), which the
+//en vertikis pay tribute to. Smooth black bodies on white, no face, and on their equator two
+//en small white crosses, one on each side, that turn with the body.
+//en =========================================================================================
+
+let yugop = false;
+
+function yugopCrosses(c) {
+  //es El ecuador: la línea que pasa por el centro con el giro del cuerpo (desde cómo nació,
+  //es para que empiece en horizontal). Las cruces, a un 72 % del radio.
+  //en The equator: the line through the centre at the body's rotation (from how it was born,
+  //en so it starts horizontal). The crosses, at 72 % of the radius.
+  const a = c.angle - c.base;
+  const dx = Math.cos(a) * c.r * 0.72;
+  const dy = Math.sin(a) * c.r * 0.72;
+  const k = Math.max(2.5, c.r * 0.028);
+  ctx.save();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1;
+  ctx.lineCap = 'butt';
+  ctx.beginPath();
+  for (const side of [-1, 1]) {
+    const x = c.cx + dx * side;
+    const y = c.cy + dy * side;
+    ctx.moveTo(x - k, y);
+    ctx.lineTo(x + k, y);
+    ctx.moveTo(x, y - k);
+    ctx.lineTo(x, y + k);
+  }
+  ctx.stroke();
+  ctx.restore();
 }
 
 let emptySince = null;
