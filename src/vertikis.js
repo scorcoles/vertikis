@@ -489,10 +489,9 @@ function step() {
 //en =========================================================================================
 
 //>> 13
-//es Paso 13 · Gotas de los globos que explotan y ondas que se abren.
-//en Step 13 · Droplets from burst balloons and rings that spread out.
+//es Paso 13 · Gotas de los globos que explotan.
+//en Step 13 · Droplets from burst balloons.
 let drops = [];
-let rings = [];
 //<<
 //es@12 Paso 12 · Tinta de las caras.
 //en@12 Step 12 · Ink for the faces.
@@ -624,24 +623,14 @@ function draw() {
   //<<
 
   //>> 13
-  //es Paso 13 · Gotas y ondas de los globos que explotan.
-  //en Step 13 · Droplets and rings from burst balloons.
+  //es Paso 13 · Gotas de los globos que explotan.
+  //en Step 13 · Droplets from burst balloons.
   for (const d of drops) {
     ctx.fillStyle = d.color;
     ctx.beginPath();
     ctx.arc(d.x, d.y, Math.max(0.1, d.r * d.life), 0, Math.PI * 2);
     ctx.fill();
   }
-  for (const g of rings) {
-    ctx.strokeStyle = g.color;
-    ctx.globalAlpha = 1 - g.t;
-    ctx.lineWidth = 3 * (1 - g.t); // @13-16
-    ctx.lineWidth = Math.max(pixel * 1.5, 3 * (1 - g.t)); // @17
-    ctx.beginPath();
-    ctx.arc(g.x, g.y, g.r * (1 + 0.5 * g.t), 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
   //<<
 }
 //<<
@@ -734,8 +723,8 @@ function frame() {
   //<<
 
   //>> 13
-  //es Paso 13 · Gotas con gravedad que se encogen; ondas que se abren y se apagan (~0,4 s).
-  //en Step 13 · Droplets with gravity that shrink; rings that spread and fade (~0.4 s).
+  //es Paso 13 · Gotas con gravedad que se encogen.
+  //en Step 13 · Droplets with gravity that shrink.
   for (const d of drops) {
     d.vy += 0.35;
     d.vx *= 0.98;
@@ -744,8 +733,6 @@ function frame() {
     d.life -= 0.025;
   }
   drops = drops.filter((d) => d.life > 0 && d.y < H + 20);
-  for (const g of rings) g.t += 0.06;
-  rings = rings.filter((g) => g.t < 1);
   //<<
 
   step(); // @4-8
@@ -879,7 +866,6 @@ function pop(c) {
   }
   if (grabbed === c) grabbed = null;
   if (hovered === c) hovered = null;
-  rings.push({ x: c.cx, y: c.cy, r: c.r, t: 0, color: c.color });
   const n = 10 + Math.round(c.r / 8);
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2;
@@ -1250,8 +1236,8 @@ function dither() {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
       const t = BAYER[(y & 3) * 4 + (x & 3)];
-      //es Borde de escalones limpios: solo lo que está a medias (pelos, ondas) se tramea.
-      //en Clean stepped edges: only what's half-covered (hairs, rings) gets dithered.
+      //es Borde de escalones limpios: solo lo que está a medias (los pelos) se tramea.
+      //en Clean stepped edges: only what's half-covered (the hairs) gets dithered.
       if (d[i + 3] / 255 + t * 0.5 < 0.5) {
         //es El fondo: dos grises casi iguales que se mezclan en vertical con la misma trama.
         //en The background: two almost identical greys blended vertically with the same pattern.

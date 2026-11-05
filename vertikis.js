@@ -333,9 +333,8 @@ function step() {
 // Dibujar (pasos 3, 10, 12 y 13)
 // =========================================================================================
 
-// Paso 13 · Gotas de los globos que explotan y ondas que se abren.
+// Paso 13 · Gotas de los globos que explotan.
 let drops = [];
-let rings = [];
 // Paso 12 · Tinta de las caras.
 const INK = '#1b1b1b';
 
@@ -430,22 +429,13 @@ function draw() {
     ctx.restore();
   }
 
-  // Paso 13 · Gotas y ondas de los globos que explotan.
+  // Paso 13 · Gotas de los globos que explotan.
   for (const d of drops) {
     ctx.fillStyle = d.color;
     ctx.beginPath();
     ctx.arc(d.x, d.y, Math.max(0.1, d.r * d.life), 0, Math.PI * 2);
     ctx.fill();
   }
-  for (const g of rings) {
-    ctx.strokeStyle = g.color;
-    ctx.globalAlpha = 1 - g.t;
-    ctx.lineWidth = Math.max(pixel * 1.5, 3 * (1 - g.t));
-    ctx.beginPath();
-    ctx.arc(g.x, g.y, g.r * (1 + 0.5 * g.t), 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
 }
 
 // =========================================================================================
@@ -518,7 +508,7 @@ function frame() {
     }
   }
 
-  // Paso 13 · Gotas con gravedad que se encogen; ondas que se abren y se apagan (~0,4 s).
+  // Paso 13 · Gotas con gravedad que se encogen.
   for (const d of drops) {
     d.vy += 0.35;
     d.vx *= 0.98;
@@ -527,8 +517,6 @@ function frame() {
     d.life -= 0.025;
   }
   drops = drops.filter((d) => d.life > 0 && d.y < H + 20);
-  for (const g of rings) g.t += 0.06;
-  rings = rings.filter((g) => g.t < 1);
 
   // Paso 9 · Varios pasos pequeños de física por fotograma: más estable que uno grande.
   for (let s = 0; s < SUBSTEPS; s++) step();
@@ -637,7 +625,6 @@ function pop(c) {
   }
   if (grabbed === c) grabbed = null;
   if (hovered === c) hovered = null;
-  rings.push({ x: c.cx, y: c.cy, r: c.r, t: 0, color: c.color });
   const n = 10 + Math.round(c.r / 8);
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2;
@@ -931,7 +918,7 @@ function dither() {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
       const t = BAYER[(y & 3) * 4 + (x & 3)];
-      // Borde de escalones limpios: solo lo que está a medias (pelos, ondas) se tramea.
+      // Borde de escalones limpios: solo lo que está a medias (los pelos) se tramea.
       if (d[i + 3] / 255 + t * 0.5 < 0.5) {
         // El fondo: dos grises casi iguales que se mezclan en vertical con la misma trama.
         const [r, g, b] = (y / h - 0.12) / 0.76 + t < 0.5 ? BG_TOP : BG_BOTTOM;

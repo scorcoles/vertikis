@@ -360,9 +360,8 @@
       // Drawing (steps 3, 10, 12 and 13)
       // =========================================================================================
 
-      // Step 13 · Droplets from burst balloons and rings that spread out.
+      // Step 13 · Droplets from burst balloons.
       let drops = [];
-      let rings = [];
       // Step 12 · Ink for the faces.
       const INK = '#1b1b1b';
 
@@ -455,22 +454,13 @@
           ctx.restore();
         }
 
-        // Step 13 · Droplets and rings from burst balloons.
+        // Step 13 · Droplets from burst balloons.
         for (const d of drops) {
           ctx.fillStyle = d.color;
           ctx.beginPath();
           ctx.arc(d.x, d.y, Math.max(0.1, d.r * d.life), 0, Math.PI * 2);
           ctx.fill();
         }
-        for (const g of rings) {
-          ctx.strokeStyle = g.color;
-          ctx.globalAlpha = 1 - g.t;
-          ctx.lineWidth = 3 * (1 - g.t);
-          ctx.beginPath();
-          ctx.arc(g.x, g.y, g.r * (1 + 0.5 * g.t), 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
       }
 
       // =========================================================================================
@@ -543,7 +533,7 @@
           }
         }
 
-        // Step 13 · Droplets with gravity that shrink; rings that spread and fade (~0.4 s).
+        // Step 13 · Droplets with gravity that shrink.
         for (const d of drops) {
           d.vy += 0.35;
           d.vx *= 0.98;
@@ -552,8 +542,6 @@
           d.life -= 0.025;
         }
         drops = drops.filter((d) => d.life > 0 && d.y < H + 20);
-        for (const g of rings) g.t += 0.06;
-        rings = rings.filter((g) => g.t < 1);
 
         // Step 9 · Several small physics steps per frame: steadier than one big one.
         for (let s = 0; s < SUBSTEPS; s++) step();
@@ -659,7 +647,6 @@
         }
         if (grabbed === c) grabbed = null;
         if (hovered === c) hovered = null;
-        rings.push({ x: c.cx, y: c.cy, r: c.r, t: 0, color: c.color });
         const n = 10 + Math.round(c.r / 8);
         for (let i = 0; i < n; i++) {
           const a = Math.random() * Math.PI * 2;

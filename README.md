@@ -747,7 +747,7 @@ Las dos funcionan igual: guardamos «hasta cuándo» (`surprisedUntil`, `squintU
 
 ### Qué queremos
 
-Una sola regla, que un niño entienda sin que se la expliquen: **cada toque infla un vertiki, y si se pasa de tamaño, explota** como un globo, con unas gotas que salen volando y una onda. Si lo dejas tranquilo, se desinfla poco a poco. Es la única manera de que exploten.
+Una sola regla, que un niño entienda sin que se la expliquen: **cada toque infla un vertiki, y si se pasa de tamaño, explota** como un globo, con unas gotas que salen volando. Si lo dejas tranquilo, se desinfla poco a poco. Es la única manera de que exploten.
 
 ### Un toque no es un arrastre
 
@@ -799,8 +799,7 @@ Los pequeños necesitan más toques que los grandes para explotar. Y como se des
 
 1. Quitamos el vertiki del array `cells`.
 2. Creamos unas cuantas **gotas** (más cuanto más grande era) en su borde, con una velocidad hacia fuera y un poco hacia arriba.
-3. Creamos una **onda**: un círculo que se agranda y se desvanece.
-4. Asustamos a los vecinos (paso 12) y hacemos sonar la explosión (paso 15).
+3. Asustamos a los vecinos (paso 12) y hacemos sonar la explosión (paso 15).
 
 Las gotas son lo más sencillo de todo el proyecto: posición, velocidad, gravedad y una «vida» que baja de 1 a 0. Al dibujarlas, su tamaño es `radio * vida`, así que se encogen hasta desaparecer:
 
@@ -814,8 +813,6 @@ for (const d of drops) {
 }
 drops = drops.filter((d) => d.life > 0);  // fuera las que ya han muerto
 ```
-
-La onda es igual: un valor `t` de 0 a 1. El radio crece con `t` y la opacidad (`globalAlpha`) y el grosor bajan con él.
 
 ---
 

@@ -746,7 +746,7 @@ Both work the same way: we store «until when» (`surprisedUntil`, `squintUntil`
 
 ### What we want
 
-A single rule that a child understands without being told: **every tap inflates a vertiki, and if it gets too big, it bursts** like a balloon, with some droplets flying out and a ring. Leave it alone and it slowly deflates. It's the only way they burst.
+A single rule that a child understands without being told: **every tap inflates a vertiki, and if it gets too big, it bursts** like a balloon, with some droplets flying out. Leave it alone and it slowly deflates. It's the only way they burst.
 
 ### A tap is not a drag
 
@@ -798,8 +798,7 @@ Small ones need more taps than big ones to burst. And since they deflate, inflat
 
 1. We remove the vertiki from the `cells` array.
 2. We create a few **droplets** (more the bigger it was) around its edge, with a velocity outwards and a little upwards.
-3. We create a **ring**: a circle that grows and fades.
-4. We startle the neighbours (step 12) and play the burst (step 15).
+3. We startle the neighbours (step 12) and play the burst (step 15).
 
 The droplets are the simplest thing in the whole project: position, velocity, gravity and a «life» that goes from 1 down to 0. When we draw them, their size is `radius * life`, so they shrink until they disappear:
 
@@ -813,8 +812,6 @@ for (const d of drops) {
 }
 drops = drops.filter((d) => d.life > 0);  // out with the dead ones
 ```
-
-The ring is the same: a value `t` from 0 to 1. The radius grows with `t`, and the opacity (`globalAlpha`) and thickness go down with it.
 
 ---
 
