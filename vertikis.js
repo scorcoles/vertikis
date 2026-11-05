@@ -1281,11 +1281,11 @@ function blueprintNotes() {
 // =========================================================================================
 
 let yugop = false;
-// En el modo yugop flotan, redondos y casi sin aplastarse, como en el original: sin
-// gravedad (con un poco, acaban todos amontonados abajo) y la rigidez casi al doble. Y cada
-// pocos segundos uno desaparece (se encoge hasta nada) o aparece otro en un hueco (crece
-// desde nada), en silencio: así, poco a poco, se reparten por toda la pantalla.
-const YUGOP = { gravity: 0, stiffness: 0.8, every: [1800, 4200] };
+// En el modo yugop flotan, redondos y casi sin aplastarse, como en el original: la
+// gravedad a un 5 % (caen muy despacio) y la rigidez casi al doble. Y cada pocos segundos
+// uno desaparece (se encoge hasta nada, con un «fiu») o aparece otro en un hueco (crece
+// desde nada): como los nuevos nacen donde hay sitio, se reparten por toda la pantalla.
+const YUGOP = { gravity: 0.05, stiffness: 0.8, every: [1800, 4200] };
 let yugopBase = 0;
 let yugopNextAt = 0;
 
@@ -1312,6 +1312,8 @@ function yugopLife(now) {
     c.vanishing = true;
     c.target = 0.5;
     c.rest = 0.5;
+    // Un «fiu» que baja, más grave cuanto más grande (solo si ya se puede sonar).
+    if (unlocked) tone(640 - Math.min(260, c.r * 1.4), 150, 0.24, 0.1, 'triangle');
     return;
   }
   // Aparecer: un sitio libre al azar (unos cuantos intentos), y crece desde casi nada.

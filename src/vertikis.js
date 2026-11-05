@@ -1652,15 +1652,15 @@ function blueprintNotes() {
 //en =========================================================================================
 
 let yugop = false;
-//es En el modo yugop flotan, redondos y casi sin aplastarse, como en el original: sin
-//es gravedad (con un poco, acaban todos amontonados abajo) y la rigidez casi al doble. Y cada
-//es pocos segundos uno desaparece (se encoge hasta nada) o aparece otro en un hueco (crece
-//es desde nada), en silencio: así, poco a poco, se reparten por toda la pantalla.
-//en In yugop mode they float, round and barely squashing, as in the original: no gravity
-//en (with even a little, they all end up piled at the bottom) and almost twice the stiffness.
-//en And every few seconds one vanishes (shrinks to nothing) or another appears in a gap
-//en (grows from nothing), silently: little by little, they spread across the whole screen.
-const YUGOP = { gravity: 0, stiffness: 0.8, every: [1800, 4200] };
+//es En el modo yugop flotan, redondos y casi sin aplastarse, como en el original: la
+//es gravedad a un 5 % (caen muy despacio) y la rigidez casi al doble. Y cada pocos segundos
+//es uno desaparece (se encoge hasta nada, con un «fiu») o aparece otro en un hueco (crece
+//es desde nada): como los nuevos nacen donde hay sitio, se reparten por toda la pantalla.
+//en In yugop mode they float, round and barely squashing, as in the original: gravity at
+//en 5 % (they sink very slowly) and almost twice the stiffness. And every few seconds one
+//en vanishes (shrinks to nothing, with a «fwip») or another appears in a gap (grows from
+//en nothing): since new ones are born where there's room, they spread across the screen.
+const YUGOP = { gravity: 0.05, stiffness: 0.8, every: [1800, 4200] };
 let yugopBase = 0;
 let yugopNextAt = 0;
 
@@ -1689,6 +1689,9 @@ function yugopLife(now) {
     c.vanishing = true;
     c.target = 0.5;
     c.rest = 0.5;
+    //es Un «fiu» que baja, más grave cuanto más grande (solo si ya se puede sonar).
+    //en A falling «fwip», lower the bigger it is (only if sound is already allowed).
+    if (unlocked) tone(640 - Math.min(260, c.r * 1.4), 150, 0.24, 0.1, 'triangle');
     return;
   }
   //es Aparecer: un sitio libre al azar (unos cuantos intentos), y crece desde casi nada.
