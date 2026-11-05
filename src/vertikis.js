@@ -1150,6 +1150,30 @@ window.vertikis = {
   },
 };
 
+//es Doble clic (o doble toque) en la etiqueta «vertikis» del pie: masacre.
+//en Double-click (or double-tap) on the «vertikis» tag in the footer: massacre.
+const creditTag = document.querySelector('.credit__tag');
+if (creditTag) {
+  creditTag.style.pointerEvents = 'auto';
+  creditTag.style.userSelect = 'none';
+  creditTag.style.webkitUserSelect = 'none';
+  creditTag.style.touchAction = 'manipulation';
+  let lastTagTap = 0;
+  creditTag.addEventListener('pointerup', () => {
+    const t = performance.now();
+    if (t - lastTagTap > 400) {
+      lastTagTap = t;
+      return;
+    }
+    lastTagTap = 0;
+    if (!unlocked) {
+      unlocked = true;
+      ac();
+    }
+    window.vertikis.masacre();
+  });
+}
+
 let emptySince = null;
 let weed = null;
 let weedNextAt = 0;
