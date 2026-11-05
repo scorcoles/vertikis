@@ -323,7 +323,6 @@ function step() {
   //es@17 En el modo yugop flotan: menos gravedad y más rigidez (ver YUGOP).
   //en@17 In yugop mode they float: less gravity and more stiffness (see YUGOP).
   const G = yugop ? GRAVITY * YUGOP.gravity : GRAVITY; // @17
-  const K = yugop ? YUGOP.stiffness : STIFFNESS; // @17
   for (const c of cells) {
     //es Paso 4 · Inercia con fricción, más la gravedad (integración de Verlet: la velocidad
     //es es la diferencia entre la posición actual y la anterior).
@@ -371,6 +370,7 @@ function step() {
     fitShape(c);
     const cos = Math.cos(c.angle);
     const sin = Math.sin(c.angle);
+    const K = stiffness(c); // @17
     for (let i = 0; i < POINTS; i++) {
       const qx = UNIT[i * 2] * c.r; // @6-9
       const qy = UNIT[i * 2 + 1] * c.r; // @6-9
@@ -1659,6 +1659,19 @@ function wireNotes() {
 //en =========================================================================================
 
 let yugop = false;
+
+//es Rigidez de cada vertiki. Los pequeños, más rígidos: los grandes pesan más y, si no, los
+//es dejan aplastados como pasas. De 0,5 en los grandes a 0,68 en los más pequeños (en yugop,
+//es sobre la suya, más alta). Siguen deformándose, pero menos.
+//en Each vertiki's stiffness. Small ones, stiffer: the big ones weigh more and would otherwise
+//en leave them squashed flat. From 0.5 for the big ones to 0.68 for the smallest (in yugop,
+//en on top of its own, higher one). They still deform, just less.
+function stiffness(c) {
+  const unit = Math.min(W, H);
+  const small = Math.max(0, Math.min(1, (unit * 0.15 - c.r) / (unit * 0.08)));
+  const base = yugop ? YUGOP.stiffness : 0.5;
+  return Math.min(0.85, base + 0.18 * small);
+}
 
 //es Tamaño al azar, en fracción del lado corto de la pantalla. Normal: del 7 % al 22 %. En
 //es yugop, más contraste, como en el original: del 5 % al 24 %, con más pequeños (la
