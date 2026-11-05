@@ -1377,11 +1377,14 @@ function yugopLife(now) {
 }
 
 function yugopCrosses(c) {
-  // El ecuador: la línea que pasa por el centro con el giro del cuerpo (desde cómo nació,
-  // para que empiece en horizontal). Las cruces, a un 72 % del radio.
-  const a = c.angle - c.base;
-  const dx = Math.cos(a) * c.r * 0.72;
-  const dy = Math.sin(a) * c.r * 0.72;
+  // El ecuador: la línea que pasa por el centro con el giro del cuerpo. Cada uno nace con
+  // su propia inclinación (el giro al azar con el que se crea) y gira al rodar. Las cruces,
+  // a un 72 % del radio, y también inclinadas con el cuerpo.
+  const a = c.angle;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  const dx = cos * c.r * 0.72;
+  const dy = sin * c.r * 0.72;
   const k = Math.max(2.5, c.r * 0.028);
   ctx.save();
   ctx.strokeStyle = '#fff';
@@ -1391,10 +1394,10 @@ function yugopCrosses(c) {
   for (const side of [-1, 1]) {
     const x = c.cx + dx * side;
     const y = c.cy + dy * side;
-    ctx.moveTo(x - k, y);
-    ctx.lineTo(x + k, y);
-    ctx.moveTo(x, y - k);
-    ctx.lineTo(x, y + k);
+    ctx.moveTo(x - cos * k, y - sin * k);
+    ctx.lineTo(x + cos * k, y + sin * k);
+    ctx.moveTo(x + sin * k, y - cos * k);
+    ctx.lineTo(x - sin * k, y + cos * k);
   }
   ctx.stroke();
   ctx.restore();
