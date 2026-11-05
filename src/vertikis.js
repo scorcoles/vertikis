@@ -499,10 +499,13 @@ const INK = '#1b1b1b'; // @12
 
 function draw() {
   ctx.clearRect(0, 0, W, H);
+  if (ascii) return drawAscii(); // @17
   if (blueprint) blueprintPaper(); // @17
+  if (riso) risoPaper(); // @17
 
   for (const c of cells) {
     if (blueprint) { wireBody(c); continue; } // @17
+    if (riso) { risoBody(c); continue; } // @17
     //es@3-9 Un gris neutro, hasta que lleguen los colores en el paso 10.
     //en@3-9 A neutral grey, until colours arrive in step 10.
     ctx.fillStyle = '#cfcfcf'; // @3-9
@@ -558,6 +561,7 @@ function draw() {
     //es Todo se mide en proporción al radio.
     //en Everything is measured relative to the radius.
     const s = c.r;
+    if (riso) risoFaceInk(c); // @17
     const squint = now < c.squintUntil;
     const surprised = !squint && now < c.surprisedUntil;
     const tilt = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35; // @17
@@ -634,12 +638,14 @@ function draw() {
     ctx.fillStyle = d.color;
     if (blueprint) ctx.fillStyle = BP_LINE; // @17
     if (yugop) ctx.fillStyle = '#000'; // @17
+    if (riso) ctx.fillStyle = RISO_INKS[risoInk(d.color) % 2]; // @17
     ctx.beginPath();
     ctx.arc(d.x, d.y, Math.max(0.1, d.r * d.life), 0, Math.PI * 2);
     ctx.fill();
   }
   //<<
   if (blueprint) blueprintNotes(); // @17
+  if (riso) risoGrain(); // @17
 }
 //<<
 
@@ -1175,10 +1181,14 @@ window.vertikis = {
     pixel = name === 'pixel' ? pixelSize() : 0;
     blueprint = name === 'blueprint';
     yugop = name === 'yugop';
+    riso = name === 'riso';
+    ascii = name === 'ascii';
     if (pixel) loadPixelFonts();
     document.documentElement.classList.toggle('is-pixel', !!pixel);
     document.documentElement.classList.toggle('is-blueprint', blueprint);
     document.documentElement.classList.toggle('is-yugop', yugop);
+    document.documentElement.classList.toggle('is-riso', riso);
+    document.documentElement.classList.toggle('is-ascii', ascii);
     //es El modo píxel cambia la resolución del canvas: hay que rehacerlo al entrar y al salir.
     //en Pixel mode changes the canvas resolution: it has to be redone going in and out.
     if (wasPixel !== !!pixel) resize();
@@ -1188,7 +1198,7 @@ window.vertikis = {
     //en Without history: switching modes doesn't fill up the «back» button.
     const hash = name === 'normal' ? '' : `#${name}`;
     if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
-    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, blueprint: '⌗ blueprint', yugop: '+ yugop' }[name];
+    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, blueprint: '⌗ blueprint', yugop: '+ yugop', riso: '◐ riso', ascii: '@ ascii' }[name];
   },
 };
 
@@ -1198,8 +1208,9 @@ window.vertikis = {
 //en add one: its name here and whatever it draws in draw().
 //es El plano va siempre el último.
 //en The blueprint always goes last.
-const MODES = ['normal', 'pixel', 'yugop', 'blueprint'];
-const currentMode = () => (yugop ? 'yugop' : blueprint ? 'blueprint' : pixel ? 'pixel' : 'normal');
+const MODES = ['normal', 'pixel', 'yugop', 'riso', 'ascii', 'blueprint'];
+const currentMode = () =>
+  ascii ? 'ascii' : riso ? 'riso' : yugop ? 'yugop' : blueprint ? 'blueprint' : pixel ? 'pixel' : 'normal';
 
 //es Al abrir una dirección con #pixel, #yugop o #blueprint (o al cambiarla a mano), se pone esa
 //es visualización. Va en una microtarea: cuando el escenario ya está montado.
@@ -1652,6 +1663,210 @@ function yugopCrosses(c) {
   ctx.restore();
 }
 
+//es =========================================================================================
+//es Extra · Risografía: como una impresión a dos tintas planas, rosa fluorescente y azul,
+//es sobre papel. Cada vertiki va en una tinta o en las dos (y entonces sale morado, porque
+//es las tintas se multiplican). El azul está un poco desregistrado, como en una riso de
+//es verdad, y encima de todo hay grano de impresión. Las caras van en la otra tinta.
+//es =========================================================================================
+//en =========================================================================================
+//en Extra · Risograph: like a print in two flat inks, fluorescent pink and blue, on paper.
+//en Each vertiki is in one ink or both (and then it comes out purple, because the inks
+//en multiply). The blue is slightly misregistered, as on a real riso, and there's print grain
+//en over everything. The faces are in the other ink.
+//en =========================================================================================
+
+let riso = false;
+const RISO_PAPER = '#f3efe6';
+const RISO_INKS = ['#ff48b0', '#0078bf'];
+//es Desregistro de la tinta azul, en píxeles.
+//en Misregistration of the blue ink, in pixels.
+const RISO_SHIFT = { x: 2, y: -1.5 };
+
+//es Qué tinta lleva cada color de la paleta: 0 rosa, 1 azul, 2 las dos.
+//en Which ink each palette colour gets: 0 pink, 1 blue, 2 both.
+const RISO_OF = [0, 0, 1, 0, 1, 2, 1, 2, 0];
+const risoInk = (color) => RISO_OF[PALETTE.indexOf(color)] ?? 0;
+
+function risoPaper() {
+  ctx.fillStyle = RISO_PAPER;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function risoShape(c, dx, dy) {
+  ctx.beginPath();
+  ctx.moveTo((c.x[POINTS - 1] + c.x[0]) / 2 + dx, (c.y[POINTS - 1] + c.y[0]) / 2 + dy);
+  for (let i = 0; i < POINTS; i++) {
+    const j = (i + 1) % POINTS;
+    ctx.quadraticCurveTo(c.x[i] + dx, c.y[i] + dy, (c.x[i] + c.x[j]) / 2 + dx, (c.y[i] + c.y[j]) / 2 + dy);
+  }
+  ctx.fill();
+}
+
+function risoBody(c) {
+  const ink = risoInk(c.color);
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.globalAlpha = 0.92;
+  if (ink !== 1) {
+    ctx.fillStyle = RISO_INKS[0];
+    risoShape(c, 0, 0);
+  }
+  if (ink !== 0) {
+    ctx.fillStyle = RISO_INKS[1];
+    risoShape(c, RISO_SHIFT.x, RISO_SHIFT.y);
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+//es La cara, en la otra tinta (sobre los morados, en reserva: color del papel).
+//en The face, in the other ink (on the purple ones, knocked out: paper colour).
+function risoFaceInk(c) {
+  const ink = risoInk(c.color);
+  ctx.globalCompositeOperation = ink === 2 ? 'source-over' : 'multiply';
+  ctx.fillStyle = ctx.strokeStyle = ink === 2 ? RISO_PAPER : RISO_INKS[1 - ink];
+}
+
+//es El grano: motitas del color del papel encima de todo (la tinta no cubre del todo),
+//es en un patrón de 160 × 160 que se repite. Se hace una vez.
+//en The grain: specks of paper colour over everything (the ink never covers fully), in a
+//en 160 × 160 pattern that repeats. It's made once.
+let risoPattern = null;
+function risoGrain() {
+  ctx.globalCompositeOperation = 'source-over';
+  if (!risoPattern) {
+    const g = document.createElement('canvas');
+    g.width = g.height = 160;
+    const gx = g.getContext('2d');
+    gx.fillStyle = RISO_PAPER;
+    for (let n = 0; n < 1400; n++) {
+      gx.globalAlpha = 0.25 + Math.random() * 0.5;
+      const size = Math.random() < 0.85 ? 1 : 2;
+      gx.fillRect(Math.floor(Math.random() * 160), Math.floor(Math.random() * 160), size, size);
+    }
+    risoPattern = ctx.createPattern(g, 'repeat');
+  }
+  ctx.fillStyle = risoPattern;
+  ctx.fillRect(0, 0, W, H);
+}
+
+//es =========================================================================================
+//es Extra · ASCII: el escenario hecho de letras en una rejilla de terminal. Los vertikis se
+//es dibujan a escondidas en un canvas diminuto (un píxel por letra); cada píxel se convierte
+//es en una letra más o menos densa según su luz (de «.» a «@»), en el color del vertiki.
+//es Las caras son casillas en vídeo inverso: «o o», «-» al parpadear, «> <», «O» y «u».
+//es =========================================================================================
+//en =========================================================================================
+//en Extra · ASCII: the stage made of characters on a terminal grid. The vertikis are drawn
+//en off-screen on a tiny canvas (one pixel per character); each pixel becomes a denser or
+//en lighter character depending on its light (from «.» to «@»), in the vertiki's colour.
+//en Faces are inverse-video cells: «o o», «-» when blinking, «> <», «O» and «u».
+//en =========================================================================================
+
+let ascii = false;
+const ASCII_BG = '#111111';
+const ASCII_FG = '#d8d8d8';
+const ASCII_RAMP = ' .:-=+*#%@';
+//es Tamaño de cada casilla, en píxeles CSS.
+//en Size of each cell, in CSS pixels.
+const ASCII_W = 9;
+const ASCII_H = 15;
+const asciiCanvas = document.createElement('canvas');
+const asciiCtx = asciiCanvas.getContext('2d', { willReadFrequently: true });
+
+function drawAscii() {
+  const cols = Math.ceil(W / ASCII_W);
+  const rows = Math.ceil(H / ASCII_H);
+  if (asciiCanvas.width !== cols || asciiCanvas.height !== rows) {
+    asciiCanvas.width = cols;
+    asciiCanvas.height = rows;
+  }
+  const o = asciiCtx;
+  o.setTransform(1, 0, 0, 1, 0, 0);
+  o.clearRect(0, 0, cols, rows);
+  o.setTransform(1 / ASCII_W, 0, 0, 1 / ASCII_H, 0, 0);
+  for (const c of cells) {
+    const g = o.createRadialGradient(c.cx - c.r * 0.35, c.cy - c.r * 0.4, c.r * 0.05, c.cx, c.cy, c.r * 1.25);
+    g.addColorStop(0, c.light);
+    g.addColorStop(0.55, c.color);
+    g.addColorStop(1, c.shade);
+    o.fillStyle = g;
+    o.beginPath();
+    o.moveTo((c.x[POINTS - 1] + c.x[0]) / 2, (c.y[POINTS - 1] + c.y[0]) / 2);
+    for (let i = 0; i < POINTS; i++) {
+      const j = (i + 1) % POINTS;
+      o.quadraticCurveTo(c.x[i], c.y[i], (c.x[i] + c.x[j]) / 2, (c.y[i] + c.y[j]) / 2);
+    }
+    o.fill();
+  }
+  for (const d of drops) {
+    o.fillStyle = d.color;
+    o.beginPath();
+    o.arc(d.x, d.y, Math.max(ASCII_W * 0.6, d.r * d.life), 0, Math.PI * 2);
+    o.fill();
+  }
+  const px = o.getImageData(0, 0, cols, rows).data;
+
+  ctx.fillStyle = ASCII_BG;
+  ctx.fillRect(0, 0, W, H);
+  ctx.font = `${ASCII_H - 2}px ui-monospace, Menlo, Consolas, monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  //es Cada letra en el color de su píxel, redondeado para no cambiar de color en cada letra.
+  //en Each character in its pixel's colour, rounded so the colour doesn't change every time.
+  let last = '';
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const i = (y * cols + x) * 4;
+      if (px[i + 3] < 110) continue;
+      const r = px[i];
+      const g = px[i + 1];
+      const b = px[i + 2];
+      //es Luz estirada: los colores de la paleta van de 0,3 a 0,9; así se usa toda la escala.
+      //en Stretched light: the palette's colours run from 0.3 to 0.9; this uses the whole ramp.
+      const light = Math.max(0, Math.min(1, ((0.3 * r + 0.59 * g + 0.11 * b) / 255 - 0.3) / 0.6));
+      const ch = ASCII_RAMP[1 + Math.round(light * (ASCII_RAMP.length - 2))];
+      const color = `rgb(${r & 0xf0},${g & 0xf0},${b & 0xf0})`;
+      if (color !== last) ctx.fillStyle = last = color;
+      ctx.fillText(ch, x * ASCII_W + ASCII_W / 2, y * ASCII_H + ASCII_H / 2);
+    }
+  }
+
+  //es Las caras: cada rasgo cae en una casilla, que se pinta del color del vertiki con la
+  //es letra en negro (vídeo inverso).
+  //en The faces: each feature lands on a cell, painted in the vertiki's colour with the
+  //en character in black (inverse video).
+  const now = performance.now();
+  const cell = (fx, fy, ch, color) => {
+    const cx = Math.floor(fx / ASCII_W);
+    const cy = Math.floor(fy / ASCII_H);
+    ctx.fillStyle = color;
+    ctx.fillRect(cx * ASCII_W, cy * ASCII_H, ASCII_W, ASCII_H);
+    ctx.fillStyle = ASCII_BG;
+    ctx.fillText(ch, cx * ASCII_W + ASCII_W / 2, cy * ASCII_H + ASCII_H / 2);
+  };
+  for (const c of cells) {
+    if (c.r < ASCII_W * 2) continue;
+    const s = c.r;
+    const turned = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
+    const cos = Math.cos(turned);
+    const sin = Math.sin(turned);
+    const at = (lx, ly) => [c.cx + lx * cos - ly * sin, c.cy + lx * sin + ly * cos];
+    const squint = now < c.squintUntil;
+    const surprised = !squint && now < c.surprisedUntil;
+    const t = (now - c.blinkAt) / 130;
+    const blink = t >= 0 && t <= 1;
+    const face = tint(c.color, 0.35);
+    for (const side of [-1, 1]) {
+      const eye = squint ? (side < 0 ? '>' : '<') : blink ? '-' : surprised ? 'O' : 'o';
+      cell(...at(side * s * 0.22 + c.lookX * s, -s * 0.12 + c.lookY * s), eye, face);
+    }
+    cell(...at(0, s * 0.14), surprised ? 'o' : c.smile > 0.5 ? 'U' : 'u', face);
+  }
+  ctx.textAlign = 'start';
+  ctx.textBaseline = 'alphabetic';
+}
+
 let emptySince = null;
 let weed = null;
 let weedNextAt = 0;
@@ -1743,7 +1958,7 @@ function tumbleweed(now) {
   //en the same colour) so it doesn't look like a cut-out circle.
   ctx.save();
   ctx.translate(w.x, w.y);
-  const ink = blueprint ? BP_LINE : pixel ? `rgb(${WEED_PX})` : INK;
+  const ink = blueprint ? BP_LINE : ascii ? ASCII_FG : riso ? RISO_INKS[1] : pixel ? `rgb(${WEED_PX})` : INK;
   ctx.fillStyle = ink;
   ctx.strokeStyle = ink;
   ctx.lineCap = 'round';
@@ -1845,7 +2060,7 @@ function tumbleweed(now) {
     ctx.arc(0, centerY, R, a0, Math.PI - a0);
     ctx.stroke();
   };
-  if (!pixel) face(blueprint ? BP_PAPER : '#fff', 0);
+  if (!pixel) face(blueprint ? BP_PAPER : ascii ? ASCII_BG : riso ? RISO_PAPER : '#fff', 0);
   ctx.restore();
   if (pixel) pixelFace(w, w.x, w.y, 0, s, false, false, '#000', now);
 }

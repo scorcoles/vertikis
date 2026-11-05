@@ -117,3 +117,31 @@ canvas.is-dragging {
   background: #fff;
   color: #000;
 }
+
+/* Risografía (#riso): papel y tinta azul. */
+.is-riso body {
+  background: #f3efe6;
+}
+
+.is-riso .credit {
+  color: #0078bf;
+}
+
+.is-riso .credit__tag {
+  background: #ff48b0;
+  color: #f3efe6;
+}
+
+/* ASCII (#ascii): fondo de terminal y letras claras. */
+.is-ascii body {
+  background: #111;
+}
+
+.is-ascii .credit {
+  color: #d8d8d8;
+}
+
+.is-ascii .credit__tag {
+  background: #d8d8d8;
+  color: #111;
+}
