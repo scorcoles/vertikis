@@ -798,6 +798,7 @@ function tone(from, to, dur, vol, type = 'sine') {
 //es Explotar: golpe de ruido que se apaga hacia grave, como un globo, más un «thump».
 //en Bursting: a burst of noise that fades towards the low end, like a balloon, plus a «thump».
 function popSound(size) {
+  if (quietPops) return; // @17
   try {
     const a = ac();
     const t = a.currentTime;
@@ -1130,6 +1131,25 @@ function updateGravity() {
 //en rolls across the screen from left to right, with little hops.
 //en =========================================================================================
 
+//es Por consola: vertikis.masacre() los hace explotar todos de golpe. «vertikis» puede
+//es tener más órdenes en el futuro.
+//en From the console: vertikis.masacre() bursts them all at once. «vertikis» can have more
+//en commands in the future.
+let quietPops = false;
+window.vertikis = {
+  masacre() {
+    const n = cells.length;
+    const big = Math.max(0, ...cells.map((c) => c.r));
+    //es Todos a la vez, pero con tres estallidos en vez de uno por vertiki (si no, satura).
+    //en All at once, but with three bursts instead of one per vertiki (otherwise it clips).
+    quietPops = true;
+    for (const c of [...cells]) pop(c);
+    quietPops = false;
+    if (n) [0, 70, 150].slice(0, n).forEach((ms) => setTimeout(() => popSound(big), ms));
+    return `💥 ${n} vertiki${n === 1 ? '' : 's'}`;
+  },
+};
+
 let emptySince = null;
 let weed = null;
 let weedNextAt = 0;
@@ -1211,10 +1231,15 @@ function tumbleweed(now) {
     }
   }
 
-  //es La maraña, que gira al rodar.
-  //en The tangle, which spins as it rolls.
+  //es Un cuerpo negro macizo y, encima, la maraña, que gira al rodar y asoma por el borde.
+  //en A solid black body and, on top, the tangle, which spins as it rolls and pokes out at the
+  //en edge.
   ctx.save();
   ctx.translate(w.x, w.y);
+  ctx.fillStyle = INK;
+  ctx.beginPath();
+  ctx.arc(0, 0, w.r * 0.8, 0, Math.PI * 2);
+  ctx.fill();
   ctx.save();
   ctx.rotate(w.rot);
   ctx.strokeStyle = INK;
@@ -1235,9 +1260,9 @@ function tumbleweed(now) {
   ctx.restore();
 
   //es La cara de los vertikis (siempre derecha): ojos que miran al puntero y parpadean, y una
-  //es sonrisa que crece con el ratón encima. Con un borde claro para que se vea sobre lo negro.
+  //es sonrisa que crece con el ratón encima. En blanco, sobre el cuerpo negro.
   //en The vertikis' face (always upright): eyes that follow the pointer and blink, and a smile
-  //en that grows when you hover. With a light edge so it shows against the black.
+  //en that grows when you hover. In white, on the black body.
   const s = w.r * 1.15;
   let lx = 0;
   let ly = 0;
@@ -1276,8 +1301,7 @@ function tumbleweed(now) {
     ctx.arc(0, centerY, R, a0, Math.PI - a0);
     ctx.stroke();
   };
-  face('#fff', Math.max(3, s * 0.08));
-  face(INK, 0);
+  face('#fff', 0);
   ctx.restore();
 }
 //<<

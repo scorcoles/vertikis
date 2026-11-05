@@ -574,6 +574,7 @@ function tone(from, to, dur, vol, type = 'sine') {
 
 // Explotar: golpe de ruido que se apaga hacia grave, como un globo, más un «thump».
 function popSound(size) {
+  if (quietPops) return;
   try {
     const a = ac();
     const t = a.currentTime;
@@ -833,6 +834,22 @@ function updateGravity() {
 // un estepicursor negro rodando de izquierda a derecha, dando botecitos.
 // =========================================================================================
 
+// Por consola: vertikis.masacre() los hace explotar todos de golpe. «vertikis» puede
+// tener más órdenes en el futuro.
+let quietPops = false;
+window.vertikis = {
+  masacre() {
+    const n = cells.length;
+    const big = Math.max(0, ...cells.map((c) => c.r));
+    // Todos a la vez, pero con tres estallidos en vez de uno por vertiki (si no, satura).
+    quietPops = true;
+    for (const c of [...cells]) pop(c);
+    quietPops = false;
+    if (n) [0, 70, 150].slice(0, n).forEach((ms) => setTimeout(() => popSound(big), ms));
+    return `💥 ${n} vertiki${n === 1 ? '' : 's'}`;
+  },
+};
+
 let emptySince = null;
 let weed = null;
 let weedNextAt = 0;
@@ -908,9 +925,13 @@ function tumbleweed(now) {
     }
   }
 
-  // La maraña, que gira al rodar.
+  // Un cuerpo negro macizo y, encima, la maraña, que gira al rodar y asoma por el borde.
   ctx.save();
   ctx.translate(w.x, w.y);
+  ctx.fillStyle = INK;
+  ctx.beginPath();
+  ctx.arc(0, 0, w.r * 0.8, 0, Math.PI * 2);
+  ctx.fill();
   ctx.save();
   ctx.rotate(w.rot);
   ctx.strokeStyle = INK;
@@ -931,7 +952,7 @@ function tumbleweed(now) {
   ctx.restore();
 
   // La cara de los vertikis (siempre derecha): ojos que miran al puntero y parpadean, y una
-  // sonrisa que crece con el ratón encima. Con un borde claro para que se vea sobre lo negro.
+  // sonrisa que crece con el ratón encima. En blanco, sobre el cuerpo negro.
   const s = w.r * 1.15;
   let lx = 0;
   let ly = 0;
@@ -970,8 +991,7 @@ function tumbleweed(now) {
     ctx.arc(0, centerY, R, a0, Math.PI - a0);
     ctx.stroke();
   };
-  face('#fff', Math.max(3, s * 0.08));
-  face(INK, 0);
+  face('#fff', 0);
   ctx.restore();
 }
 
