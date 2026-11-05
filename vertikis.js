@@ -19,7 +19,9 @@ let H = 0;
 function resize() {
   // En pantallas retina hay 2 píxeles reales por cada píxel CSS: dibujamos al doble para
   // que se vea nítido (como mucho ×2, para no gastar de más).
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  // En modo píxel (vertikis.pixelate()), al revés: un píxel real por cada «píxel gordo».
+  if (pixel) pixel = pixelSize();
+  const dpr = pixel ? 1 / pixel : Math.min(window.devicePixelRatio || 1, 2);
   const first = W === 0;
   W = window.innerWidth;
   H = window.innerHeight;
@@ -96,6 +98,8 @@ function makeCell(cx, cy, r) {
     color,
     light: tint(color, 0.16),
     shade: tint(color, -0.06),
+    lightPx: tint(color, 0.14),
+    shadePx: tint(color, -0.1),
     // Paso 12 · La cara. «base» es el giro con el que nació: la cara se mide desde aquí,
     // para que nazca derecha. smile: 0 = «:)», 1 = «:D», con un muelle (smileV).
     base: turn,
@@ -342,9 +346,9 @@ function draw() {
     // Paso 10 · Levísimo degradado: luz fija arriba a la izquierda, más claro ahí y un poco
     // más oscuro en el borde opuesto.
     const g = ctx.createRadialGradient(c.cx - c.r * 0.35, c.cy - c.r * 0.4, c.r * 0.05, c.cx, c.cy, c.r * 1.25);
-    g.addColorStop(0, c.light);
+    g.addColorStop(0, pixel ? c.lightPx : c.light);
     g.addColorStop(0.55, c.color);
-    g.addColorStop(1, c.shade);
+    g.addColorStop(1, pixel ? c.shadePx : c.shade);
     ctx.fillStyle = g;
     // Paso 3 · Contorno suave: curvas que pasan por los puntos medios del anillo.
     ctx.beginPath();
@@ -370,6 +374,8 @@ function draw() {
     const s = c.r;
     const squint = now < c.squintUntil;
     const surprised = !squint && now < c.surprisedUntil;
+    const tilt = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
+    if (pixel) { pixelFace(c, c.cx, c.cy, tilt, s, squint, surprised, '#000', now); continue; }
     ctx.save();
     ctx.translate(c.cx, c.cy);
     // La cara se inclina con lo que gira el cuerpo, pero amortiguado (×0,35): reacciona al
@@ -434,7 +440,7 @@ function draw() {
   for (const g of rings) {
     ctx.strokeStyle = g.color;
     ctx.globalAlpha = 1 - g.t;
-    ctx.lineWidth = 3 * (1 - g.t);
+    ctx.lineWidth = Math.max(pixel * 1.5, 3 * (1 - g.t));
     ctx.beginPath();
     ctx.arc(g.x, g.y, g.r * (1 + 0.5 * g.t), 0, Math.PI * 2);
     ctx.stroke();
@@ -528,6 +534,7 @@ function frame() {
   for (let s = 0; s < SUBSTEPS; s++) step();
   draw();
   tumbleweed(now);
+  if (pixel) dither();
   requestAnimationFrame(frame);
 }
 
@@ -848,9 +855,182 @@ window.vertikis = {
     if (n) [0, 70, 150].slice(0, n).forEach((ms) => setTimeout(() => popSound(big), ms));
     return `💥 ${n} vertiki${n === 1 ? '' : 's'}`;
   },
+  // vertikis.pixelate(): versión píxel (otra vez, o pixelate(false), para volver).
+  pixelate(on = !pixel) {
+    pixel = on ? pixelSize() : 0;
+    if (on) loadPixelFonts();
+    document.documentElement.classList.toggle('is-pixel', !!on);
+    resize();
+    return on ? `▦ pixel ×${pixel}` : '● smooth';
+  },
 };
 
-// Doble clic (o doble toque) en la etiqueta «vertikis» del pie: masacre.
+// =========================================================================================
+// Extra · Modo píxel: el canvas se dibuja a baja resolución (cada píxel real ocupa
+// «pixel» píxeles CSS y el navegador lo amplía sin suavizar), y después se tramea con un
+// dither ordenado (matriz de Bayer 4×4) con una paleta cerrada: los degradados se
+// convierten en tramas de puntos. Las caras se pintan aparte, píxel a píxel.
+// =========================================================================================
+
+// 0 = modo normal; si no, cuántos píxeles CSS mide cada píxel.
+let pixel = 0;
+const pixelSize = () => Math.max(3, Math.round(Math.min(window.innerWidth, window.innerHeight) / 170));
+
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16 - 0.5);
+
+// Paleta cerrada: cada color de los vertikis en tres tonos (sombra, color y luz), más
+// negro y blanco. Para no buscar el más cercano en cada píxel, una tabla de 32×32×32
+// (5 bits por canal) dice qué color de la paleta toca.
+let ditherPalette = null;
+let ditherTable = null;
+function buildPalette() {
+  const rgb = (hex, t) => {
+    const n = parseInt(hex.slice(1), 16);
+    const to = t > 0 ? 255 : 0;
+    const k = Math.abs(t);
+    return [n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.round(v + (to - v) * k));
+  };
+  ditherPalette = [[0, 0, 0], [255, 255, 255], WEED_PX];
+  for (const hex of PALETTE) for (const t of [-0.1, 0, 0.14]) ditherPalette.push(rgb(hex, t));
+  ditherTable = new Uint8Array(32 * 32 * 32);
+  for (let i = 0; i < ditherTable.length; i++) {
+    const r = ((i >> 10) << 3) + 4;
+    const g = (((i >> 5) & 31) << 3) + 4;
+    const b = ((i & 31) << 3) + 4;
+    let best = 0;
+    let bestD = Infinity;
+    ditherPalette.forEach(([pr, pg, pb], k) => {
+      // Distancia con más peso en el verde, como el ojo.
+      const d = 2 * (r - pr) ** 2 + 4 * (g - pg) ** 2 + 3 * (b - pb) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = k;
+      }
+    });
+    ditherTable[i] = best;
+  }
+}
+
+// Fondo oscuro (arriba y abajo) y el estepicursor, claro para que se vea sobre él.
+const BG_TOP = [26, 26, 26];
+const BG_BOTTOM = [38, 38, 38];
+const WEED_PX = [233, 231, 224];
+
+// Cuánto empuja la trama hacia un tono u otro (en niveles de 0 a 255).
+const SPREAD = 26;
+
+function dither() {
+  const w = canvas.width;
+  const h = canvas.height;
+  if (!w || !h) return;
+  if (!ditherTable) buildPalette();
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  const c = (v) => (v < 0 ? 0 : v > 255 ? 255 : v) >> 3;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const t = BAYER[(y & 3) * 4 + (x & 3)];
+      // Borde de escalones limpios: solo lo que está a medias (pelos, ondas) se tramea.
+      if (d[i + 3] / 255 + t * 0.5 < 0.5) {
+        // El fondo: dos grises casi iguales que se mezclan en vertical con la misma trama.
+        const [r, g, b] = (y / h - 0.12) / 0.76 + t < 0.5 ? BG_TOP : BG_BOTTOM;
+        d[i] = r;
+        d[i + 1] = g;
+        d[i + 2] = b;
+        d[i + 3] = 255;
+        continue;
+      }
+      const o = t * SPREAD;
+      const [r, g, b] = ditherPalette[ditherTable[(c(d[i] + o) << 10) | (c(d[i + 1] + o) << 5) | c(d[i + 2] + o)]];
+      d[i] = r;
+      d[i + 1] = g;
+      d[i + 2] = b;
+      d[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// Una cara de píxeles enteros (sin suavizado), en negro o blanco puros para que el dither
+// la deje intacta. «f» trae la mirada, el parpadeo y la sonrisa; (x, y) es el centro.
+function pixelFace(f, x, y, rot, s, squint, surprised, color, now) {
+  const k = 1 / pixel;
+  const cos = Math.cos(rot);
+  const sin = Math.sin(rot);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = color;
+  const dot = (px, py, n, m = n) => {
+    const X = (x + px * cos - py * sin) * k;
+    const Y = (y + px * sin + py * cos) * k;
+    ctx.fillRect(Math.round(X - n / 2), Math.round(Y - m / 2), n, m);
+  };
+  const path = (pts, n) => {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x0, y0] = pts[i];
+      const [x1, y1] = pts[i + 1];
+      const steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) * k * 2));
+      for (let j = 0; j <= steps; j++) dot(x0 + ((x1 - x0) * j) / steps, y0 + ((y1 - y0) * j) / steps, n);
+    }
+  };
+  const pen = Math.max(1, Math.round(s * 0.034 * k));
+
+  // Ojos: bloques de píxeles; al parpadear, una sola fila.
+  const t = (now - f.blinkAt) / 130;
+  const open = t >= 0 && t <= 1 ? Math.abs(1 - 2 * t) : 1;
+  const eye = Math.max(1, Math.round(s * 0.08 * k * (surprised ? 1.35 : 1)));
+  for (const side of [-1, 1]) {
+    const ex = side * s * 0.22;
+    const ey = -s * 0.12;
+    if (squint) {
+      const dd = Math.max(s * 0.065, pixel * 1.5);
+      path([[ex + side * dd, ey - dd], [ex - side * dd * 0.4, ey], [ex + side * dd, ey + dd]], pen);
+      continue;
+    }
+    dot(ex + f.lookX * s, ey + f.lookY * s, eye, Math.max(1, Math.round(eye * open)));
+  }
+
+  // Boca: la «o» de susto o el mismo trozo de círculo de siempre, en escalones.
+  const pts = [];
+  if (surprised) {
+    const r = Math.max(s * 0.06, pixel * 1.2);
+    for (let i = 0; i <= 16; i++) pts.push([Math.cos((i / 16) * Math.PI * 2) * r, s * 0.12 + Math.sin((i / 16) * Math.PI * 2) * r]);
+  } else {
+    const m = squint ? 0 : f.smile;
+    const w = s * 0.16;
+    const h = Math.max(0.05, w * (0.32 + 0.5 * m));
+    const top = s * 0.06;
+    const R = (w * w + h * h) / (2 * h);
+    const centerY = top + h - R;
+    const a0 = Math.asin(Math.min(1, (top - centerY) / R));
+    for (let i = 0; i <= 12; i++) {
+      const a = a0 + ((Math.PI - 2 * a0) * i) / 12;
+      pts.push([Math.cos(a) * R, centerY + Math.sin(a) * R]);
+    }
+  }
+  path(pts, pen);
+  ctx.restore();
+}
+
+// Las letras del modo píxel, como en pamir.ai: Iosevka para el texto y una de píxeles
+// (Silkscreen) para la etiqueta. Se cargan solo la primera vez que se activa.
+let pixelFonts = false;
+function loadPixelFonts() {
+  if (pixelFonts) return;
+  pixelFonts = true;
+  for (const href of [
+    'https://cdn.jsdelivr.net/npm/@fontsource/iosevka@5.2.5/400.css',
+    'https://fonts.googleapis.com/css2?family=Silkscreen&display=swap',
+  ]) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.append(link);
+  }
+}
+
+// Doble clic (o doble toque) en la etiqueta «vertikis» del pie: modo píxel (y vuelta).
 const creditTag = document.querySelector('.credit__tag');
 if (creditTag) {
   creditTag.style.pointerEvents = 'auto';
@@ -869,7 +1049,7 @@ if (creditTag) {
       unlocked = true;
       ac();
     }
-    window.vertikis.masacre();
+    window.vertikis.pixelate();
   });
 }
 
@@ -954,10 +1134,11 @@ function tumbleweed(now) {
   // borrosa del mismo color) para que no parezca un círculo recortado.
   ctx.save();
   ctx.translate(w.x, w.y);
-  ctx.fillStyle = INK;
-  ctx.strokeStyle = INK;
+  const ink = pixel ? `rgb(${WEED_PX})` : INK;
+  ctx.fillStyle = ink;
+  ctx.strokeStyle = ink;
   ctx.lineCap = 'round';
-  ctx.shadowColor = INK;
+  ctx.shadowColor = ink;
   ctx.shadowBlur = w.r * 0.35;
   ctx.beginPath();
   const n = w.lumps.length;
@@ -1051,8 +1232,9 @@ function tumbleweed(now) {
     ctx.arc(0, centerY, R, a0, Math.PI - a0);
     ctx.stroke();
   };
-  face('#fff', 0);
+  if (!pixel) face('#fff', 0);
   ctx.restore();
+  if (pixel) pixelFace(w, w.x, w.y, 0, s, false, false, '#000', now);
 }
 
 // =========================================================================================

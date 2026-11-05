@@ -59,3 +59,27 @@ canvas.is-dragging {
   color: #fff;
   margin-right: 4px;
 }
+
+/* Modo píxel (vertikis.pixelate() por consola): fondo oscuro, píxeles sin suavizar y letras al
+   estilo de pamir.ai (Iosevka y una de píxeles para la etiqueta). */
+.is-pixel body {
+  background: #1a1a1a;
+}
+
+.is-pixel canvas {
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+.is-pixel .credit {
+  font: 11px/1.45 Iosevka, ui-monospace, Menlo, monospace;
+  letter-spacing: 0;
+  color: #e9e7e0;
+}
+
+.is-pixel .credit__tag {
+  font-family: Silkscreen, Iosevka, monospace;
+  font-size: 10px;
+  background: #ff6a13;
+  color: #fff;
+}
