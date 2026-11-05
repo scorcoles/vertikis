@@ -926,6 +926,8 @@ for (const [sel, by] of [['[data-mode-prev]', -1], ['[data-mode-next]', 1]]) {
       if (!unlocked) {
         unlocked = true;
         ac();
+        // Y en iPhone, pedir el acelerómetro: si el primer toque es aquí, no se pediría nunca.
+        askTilt();
       }
       stepMode(by);
     });
@@ -1117,6 +1119,7 @@ if (creditTag) {
     if (!unlocked) {
       unlocked = true;
       ac();
+      askTilt();
     }
     window.vertikis.mode(MODES[(MODES.indexOf(currentMode()) + 1) % MODES.length]);
   });
