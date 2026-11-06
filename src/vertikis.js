@@ -694,6 +694,7 @@ function draw() {
   if (halloween) batsFly(performance.now()); // @17
   if (wire) wireNotes(); // @17
   if (riso) risoGrain(); // @17
+  if (evil) evilToner(); // @17
 }
 //<<
 
@@ -2012,6 +2013,57 @@ const EVIL_FACE = 1.4;
 
 function evilPaper() {
   ctx.fillStyle = EVIL_PAPER;
+  ctx.fillRect(0, 0, W, H);
+}
+
+//es El negro de fotocopia: al tóner le faltan motas. Un mosaico con polvo fino por todas partes,
+//es zonas gastadas donde se concentra y rayas verticales rotas, como las que deja el tambor. Se
+//es hace a la resolución real de la pantalla, para que las motas sean de un píxel de verdad. Va
+//es del color del fondo y por encima de todo, así que solo se ve sobre el negro.
+//en Photocopy black: the toner has specks missing. A tile with fine dust everywhere, worn patches
+//en where it gathers and broken vertical streaks, like the ones the drum leaves. It is made at
+//en the screen's real resolution, so the specks are true single pixels. It is the background
+//en colour and goes over everything, so it only shows on the black.
+const TONER = { tile: 768, dust: 0.03, patches: 8, patch: 5000, reach: [30, 90], streaks: 7, gap: 16 };
+let evilTonerPattern = null;
+let evilTonerScale = 0;
+
+function evilToner() {
+  const dpr = canvas.width / W || 1;
+  if (!evilTonerPattern || evilTonerScale !== dpr) {
+    const size = Math.round(TONER.tile * dpr);
+    const g = document.createElement('canvas');
+    g.width = g.height = size;
+    const gx = g.getContext('2d');
+    gx.fillStyle = EVIL_PAPER;
+    const speck = (x, y, w, h) => {
+      gx.globalAlpha = 0.3 + Math.random() * 0.7;
+      gx.fillRect((x + size) % size, (y + size) % size, w, h);
+    };
+    for (let n = 0; n < size * size * TONER.dust; n++) speck(Math.random() * size, Math.random() * size, 1, 1);
+    for (let p = 0; p < TONER.patches; p++) {
+      const cx = Math.random() * size;
+      const cy = Math.random() * size;
+      const reach = (TONER.reach[0] + Math.random() * (TONER.reach[1] - TONER.reach[0])) * dpr;
+      for (let n = 0; n < TONER.patch * dpr * dpr; n++) {
+        //es Parejas por dentro y cada vez menos hacia el borde, que se deshace.
+        //en Even inside and fewer and fewer towards the edge, which falls apart.
+        const a = Math.random() * Math.PI * 2;
+        const d = reach * (Math.random() + Math.random());
+        speck(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 1, 1);
+      }
+    }
+    for (let n = 0; n < TONER.streaks; n++) {
+      const x = Math.random() * size;
+      for (let y = 0; y < size; y += 1 + Math.random() * TONER.gap * dpr) {
+        speck(x + (Math.random() - 0.5) * 2, y, 1, 1 + Math.random() * 5 * dpr);
+      }
+    }
+    evilTonerPattern = ctx.createPattern(g, 'repeat');
+    evilTonerPattern.setTransform(new DOMMatrix().scale(1 / dpr));
+    evilTonerScale = dpr;
+  }
+  ctx.fillStyle = evilTonerPattern;
   ctx.fillRect(0, 0, W, H);
 }
 
