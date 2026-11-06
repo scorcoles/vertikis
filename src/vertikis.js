@@ -2495,7 +2495,47 @@ function ghostEyes(c, rot, now) {
 const BAT = { time: [2600, 4400], count: [4, 9], curve: 0.25, up: 0.9 };
 let bats = [];
 
+//es Los chillidos: unos dos segundos de chirridos cortos y agudos, a tonos distintos para que
+//es suene a varios, cada vez más flojos. Pasan por un filtro que deja solo lo agudo. Si
+//es explotan varios seguidos, no se pisan: una tanda cada segundo como mucho.
+//en The screeches: about two seconds of short, high chirps, at different pitches so it sounds
+//en like several, getting quieter. They go through a filter that keeps only the highs. If
+//en several burst in a row they don't pile up: one batch a second at most.
+const SCREECH = { time: 2, volume: 0.05, low: 3200, high: 7000 };
+let lastScreech = 0;
+function batScreech() {
+  const now = performance.now();
+  if (now - lastScreech < 1000) return;
+  lastScreech = now;
+  try {
+    const a = ac();
+    const t0 = a.currentTime;
+    const highs = a.createBiquadFilter();
+    highs.type = 'highpass';
+    highs.frequency.value = 2000;
+    highs.connect(master);
+    for (let at = Math.random() * 0.05; at < SCREECH.time; at += 0.05 + Math.random() * 0.1) {
+      const t = t0 + at;
+      const dur = 0.03 + Math.random() * 0.05;
+      const f = SCREECH.low + Math.random() * (SCREECH.high - SCREECH.low);
+      const vol = SCREECH.volume * (1 - at / SCREECH.time) ** 1.2 + 0.001;
+      const osc = a.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(f, t);
+      osc.frequency.exponentialRampToValueAtTime(f * (0.7 + Math.random() * 0.6), t + dur);
+      const gain = a.createGain();
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(vol, t + 0.006);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(gain).connect(highs);
+      osc.start(t);
+      osc.stop(t + dur + 0.01);
+    }
+  } catch {}
+}
+
 function batsBurst(c) {
+  batScreech();
   const now = performance.now();
   const short = Math.min(W, H);
   const n = Math.max(BAT.count[0], Math.min(BAT.count[1], Math.round(c.r / (short * 0.04))));
