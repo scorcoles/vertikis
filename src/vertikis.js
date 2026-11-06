@@ -333,6 +333,7 @@ function step() {
   //en@17 In halloween they fly: no gravity, except a little when tilting the phone, and drifting.
   const G = halloween ? (tiltListening ? GRAVITY * HALLOWEEN.tilt : 0) : yugop ? GRAVITY * YUGOP.gravity * (touchDevice ? 1 : 0.85) : GRAVITY; // @17
   const t = performance.now() / 1000; // @17
+  if (halloween) ghostSpace(); // @17
   for (const c of cells) {
     const [wx, wy] = halloween ? ghostDrift(c, t) : [0, 0]; // @17
     //es Paso 4 · Inercia con fricción, más la gravedad (integración de Verlet: la velocidad
@@ -1218,6 +1219,7 @@ window.vertikis = {
     if (!MODES.includes(name) && !HIDDEN.includes(name)) return `? ${[...MODES, ...HIDDEN].join(' · ')}`;
     const wasPixel = !!pixel;
     const wasYugop = yugop;
+    const wasHalloween = halloween;
     pixel = name === 'pixel' ? pixelSize() : 0;
     wire = name === 'wire';
     yugop = name === 'yugop';
@@ -1230,6 +1232,7 @@ window.vertikis = {
     //en Entering yugop notes how many there are (they appear and vanish around that number);
     //en leaving, the ones that were vanishing go for good.
     if (yugop && !wasYugop) yugopStart();
+    if (halloween && !wasHalloween) ghostFew();
     if (!yugop) cells = cells.filter((c) => !c.vanishing);
     document.documentElement.classList.toggle('is-pixel', !!pixel);
     document.documentElement.classList.toggle('is-wire', wire);
@@ -2332,9 +2335,59 @@ let halloween = false;
 //en tilt: gravity when tilting the phone (fraction of the normal one). drift: how hard the
 //en drift pushes each substep (with friction, about 50 px/s at most). skirt: how far the
 //en skirt drops and how tall the wave is, as a fraction of the radius.
-const HALLOWEEN = { tilt: 0.3, drift: 0.008, skirt: 0.22, wave: 0.11, waves: 3 };
+//es fill: cuánto de la pantalla ocupan (los demás modos, la mitad). space y push: a qué
+//es distancia empiezan a apartarse (en sumas de radios) y con cuánta fuerza.
+//en fill: how much of the screen they take up (the other modes, half). space and push: at
+//en what distance they start moving apart (in sums of radii) and how hard.
+const HALLOWEEN = { tilt: touchDevice ? 0.1 : 0.3, drift: 0.008, skirt: 0.22, wave: 0.11, waves: 3, fill: 0.25, space: 1.35, push: 0.0025 };
 const GHOST = '#111111';
 const GHOST_EYE = '#ffffff';
+
+//es Al entrar en halloween, menos: se quedan los que, al azar, caben en «fill» de la
+//es pantalla (al menos tres). Los demás se van sin más.
+//en On entering halloween, fewer: the ones that, at random, fit in «fill» of the screen stay
+//en (at least three). The rest just go.
+function ghostFew() {
+  const room = W * H * HALLOWEEN.fill;
+  let area = 0;
+  cells = cells
+    .map((c) => [Math.random(), c])
+    .sort((a, b) => a[0] - b[0])
+    .map(([, c]) => c)
+    .filter((c, n) => {
+      area += Math.PI * c.r * c.r;
+      return n < 3 || area <= room;
+    });
+  if (grabbed && !cells.includes(grabbed)) grabbed = null;
+  if (hovered && !cells.includes(hovered)) hovered = null;
+}
+
+//es Les cuesta acercarse: cuando dos están a menos de «space» veces la suma de sus radios,
+//es se empujan suavemente, más cuanto más cerca (antes de llegar a tocarse).
+//en They find it hard to get close: when two are under «space» times the sum of their radii
+//en apart, they push each other gently, harder the closer they are (before even touching).
+function ghostSpace() {
+  for (let a = 0; a < cells.length; a++) {
+    for (let b = a + 1; b < cells.length; b++) {
+      const p = cells[a];
+      const q = cells[b];
+      const dx = q.cx - p.cx;
+      const dy = q.cy - p.cy;
+      const d = Math.hypot(dx, dy) || 1;
+      const min = (p.r + q.r) * HALLOWEEN.space;
+      if (d >= min) continue;
+      const f = (min - d) * HALLOWEEN.push;
+      const ux = (dx / d) * f;
+      const uy = (dy / d) * f;
+      for (let i = 0; i < POINTS; i++) {
+        p.x[i] -= ux;
+        p.y[i] -= uy;
+        q.x[i] += ux;
+        q.y[i] += uy;
+      }
+    }
+  }
+}
 
 //es La deriva: un empujón que cambia despacio de dirección, distinto para cada fantasma.
 //en The drift: a push that slowly changes direction, different for each ghost.

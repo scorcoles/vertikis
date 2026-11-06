@@ -207,6 +207,7 @@ function step() {
   // En halloween vuelan: sin gravedad, salvo un poco al inclinar el móvil, y a la deriva.
   const G = halloween ? (tiltListening ? GRAVITY * HALLOWEEN.tilt : 0) : yugop ? GRAVITY * YUGOP.gravity * (touchDevice ? 1 : 0.85) : GRAVITY;
   const t = performance.now() / 1000;
+  if (halloween) ghostSpace();
   for (const c of cells) {
     const [wx, wy] = halloween ? ghostDrift(c, t) : [0, 0];
     // Paso 4 · Inercia con fricción, más la gravedad (integración de Verlet: la velocidad
@@ -889,6 +890,7 @@ window.vertikis = {
     if (!MODES.includes(name) && !HIDDEN.includes(name)) return `? ${[...MODES, ...HIDDEN].join(' · ')}`;
     const wasPixel = !!pixel;
     const wasYugop = yugop;
+    const wasHalloween = halloween;
     pixel = name === 'pixel' ? pixelSize() : 0;
     wire = name === 'wire';
     yugop = name === 'yugop';
@@ -899,6 +901,7 @@ window.vertikis = {
     // Al entrar en yugop se apunta cuántos hay (alrededor de ese número aparecen y
     // desaparecen); al salir, los que estaban desapareciendo se van del todo.
     if (yugop && !wasYugop) yugopStart();
+    if (halloween && !wasHalloween) ghostFew();
     if (!yugop) cells = cells.filter((c) => !c.vanishing);
     document.documentElement.classList.toggle('is-pixel', !!pixel);
     document.documentElement.classList.toggle('is-wire', wire);
@@ -1837,9 +1840,53 @@ let halloween = false;
 // tilt: la gravedad al inclinar el móvil (fracción de la normal). drift: lo que empuja la
 // deriva en cada subpaso (con la fricción, unos 50 px/s como mucho). skirt: lo que baja la
 // falda y lo alta que es la onda, en fracción del radio.
-const HALLOWEEN = { tilt: 0.3, drift: 0.008, skirt: 0.22, wave: 0.11, waves: 3 };
+// fill: cuánto de la pantalla ocupan (los demás modos, la mitad). space y push: a qué
+// distancia empiezan a apartarse (en sumas de radios) y con cuánta fuerza.
+const HALLOWEEN = { tilt: touchDevice ? 0.1 : 0.3, drift: 0.008, skirt: 0.22, wave: 0.11, waves: 3, fill: 0.25, space: 1.35, push: 0.0025 };
 const GHOST = '#111111';
 const GHOST_EYE = '#ffffff';
+
+// Al entrar en halloween, menos: se quedan los que, al azar, caben en «fill» de la
+// pantalla (al menos tres). Los demás se van sin más.
+function ghostFew() {
+  const room = W * H * HALLOWEEN.fill;
+  let area = 0;
+  cells = cells
+    .map((c) => [Math.random(), c])
+    .sort((a, b) => a[0] - b[0])
+    .map(([, c]) => c)
+    .filter((c, n) => {
+      area += Math.PI * c.r * c.r;
+      return n < 3 || area <= room;
+    });
+  if (grabbed && !cells.includes(grabbed)) grabbed = null;
+  if (hovered && !cells.includes(hovered)) hovered = null;
+}
+
+// Les cuesta acercarse: cuando dos están a menos de «space» veces la suma de sus radios,
+// se empujan suavemente, más cuanto más cerca (antes de llegar a tocarse).
+function ghostSpace() {
+  for (let a = 0; a < cells.length; a++) {
+    for (let b = a + 1; b < cells.length; b++) {
+      const p = cells[a];
+      const q = cells[b];
+      const dx = q.cx - p.cx;
+      const dy = q.cy - p.cy;
+      const d = Math.hypot(dx, dy) || 1;
+      const min = (p.r + q.r) * HALLOWEEN.space;
+      if (d >= min) continue;
+      const f = (min - d) * HALLOWEEN.push;
+      const ux = (dx / d) * f;
+      const uy = (dy / d) * f;
+      for (let i = 0; i < POINTS; i++) {
+        p.x[i] -= ux;
+        p.y[i] -= uy;
+        q.x[i] += ux;
+        q.y[i] += uy;
+      }
+    }
+  }
+}
 
 // La deriva: un empujón que cambia despacio de dirección, distinto para cada fantasma.
 const ghostDrift = (c, t) => [
