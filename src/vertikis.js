@@ -2068,6 +2068,16 @@ function xmasFill(c) {
 //en The hat, rotated like the face. It's drawn right after its body (the ones after it cover
 //en it, and the faces go on top of everything). It sits on the highest point of the body as
 //en it is right now, so it drops when the body squashes.
+//es La punta (con el pompón) tiene física propia, como un punto del paso 4: inercia, un
+//es muelle que la lleva a su sitio y la gravedad. Así se queda atrás al caer o al arrastrar,
+//es se balancea y se dobla hacia donde tira la gravedad (en el móvil, al inclinarlo). Su
+//es distancia a la base no cambia: la tela no se estira.
+//en The tip (with the bobble) has physics of its own, like a point from step 4: inertia, a
+//en spring that takes it to its place, and gravity. So it lags behind when falling or being
+//en dragged, sways, and bends whichever way gravity pulls (on a phone, by tilting it). Its
+//en distance from the base doesn't change: the fabric doesn't stretch.
+const HAT = { spring: 0.07, friction: 0.9, gravity: 0.35, lowest: 0.12 };
+
 function xmasHat(c) {
   const s = c.r;
   const rot = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
@@ -2083,16 +2093,51 @@ function xmasHat(c) {
   const lean = Math.sin(c.base * 7);
   const y = top + s * 0.18;
   const bw = s * 0.44;
-  const tipX = lean * s * 0.4;
-  const tipY = y - s * 0.58;
+  const restX = lean * s * 0.4;
+  const restY = y - s * 0.58;
+  const len = Math.hypot(restX, restY - y);
+  //es De la cara al mundo y vuelta (girar rot y mover al centro).
+  //en From the face to the world and back (rotate by rot and move to the centre).
+  const toX = (lx, ly) => c.cx + lx * cos - ly * sin;
+  const toY = (lx, ly) => c.cy + lx * sin + ly * cos;
+  const baseX = toX(0, y);
+  const baseY = toY(0, y);
+  const restWX = toX(restX, restY);
+  const restWY = toY(restX, restY);
+  //es La primera vez (o al volver a xmas) la punta empieza en su sitio.
+  //en The first time (or on coming back to xmas) the tip starts in its place.
+  const now = performance.now();
+  if (!c.hat || now - c.hat.t > 200) c.hat = { x: restWX, y: restWY, px: restWX, py: restWY, t: now };
+  const h = c.hat;
+  h.t = now;
+  const vx = (h.x - h.px) * HAT.friction;
+  const vy = (h.y - h.py) * HAT.friction;
+  h.px = h.x;
+  h.py = h.y;
+  h.x += vx + (restWX - h.x) * HAT.spring + HAT.gravity * gravX;
+  h.y += vy + (restWY - h.y) * HAT.spring + HAT.gravity * gravY;
+  //es Vuelta a la cara: a la misma distancia de la base y nunca por debajo del borde.
+  //en Back to the face: at the same distance from the base and never below the brim.
+  const dx = h.x - baseX;
+  const dy = h.y - baseY;
+  let tx = dx * cos + dy * sin;
+  let ty = -dx * sin + dy * cos;
+  ty = Math.min(ty, -s * HAT.lowest);
+  const d = Math.hypot(tx, ty) || 1;
+  tx *= len / d;
+  ty *= len / d;
+  h.x = baseX + tx * cos - ty * sin;
+  h.y = baseY + tx * sin + ty * cos;
+  const tipX = tx;
+  const tipY = y + ty;
   ctx.save();
   ctx.translate(c.cx, c.cy);
   ctx.rotate(rot);
   ctx.fillStyle = HAT_RED;
   ctx.beginPath();
   ctx.moveTo(-bw * 0.9, y);
-  ctx.quadraticCurveTo(-bw * 0.6 + tipX * 0.3, y - s * 0.55, tipX, tipY);
-  ctx.quadraticCurveTo(bw * 0.5 + tipX * 0.3, y - s * 0.4, bw * 0.9, y);
+  ctx.quadraticCurveTo(-bw * 0.6 + tipX * 0.3, y + ty * 0.95, tipX, tipY);
+  ctx.quadraticCurveTo(bw * 0.5 + tipX * 0.3, y + ty * 0.7, bw * 0.9, y);
   ctx.closePath();
   ctx.fill();
   ctx.fillStyle = HAT_WHITE;
