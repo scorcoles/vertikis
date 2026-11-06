@@ -511,6 +511,7 @@ function step() {
     }
   }
   //<<
+  if (evil) for (const c of cells) tailStep(c, t); // @17
 }
 //<<
 
@@ -537,6 +538,7 @@ function draw() {
   if (riso) risoPaper(); // @17
   if (xmas) xmasSnow(); // @17
   if (evil) evilPaper(); // @17
+  if (evil) evilTails(); // @17
 
   for (const c of cells) {
     if (wire) { wireBody(c); continue; } // @17
@@ -1237,6 +1239,7 @@ window.vertikis = {
     //en leaving, the ones that were vanishing go for good.
     if (yugop && !wasYugop) yugopStart();
     if (halloween && !wasHalloween) ghostFew();
+    for (const c of cells) c.tail = null;
     if (!yugop) cells = cells.filter((c) => !c.vanishing);
     document.documentElement.classList.toggle('is-pixel', !!pixel);
     document.documentElement.classList.toggle('is-wire', wire);
@@ -1990,13 +1993,13 @@ function risoGrain() {
 }
 
 //es =========================================================================================
-//es Extra · Evil (por consola, vertikis.style.evil(), o #evil): siluetas negras con cuernos
-//es sobre rojo plano, como un cartel. Los ojos en cruz y la sonrisa cosida van recortados: se
+//es Extra · Evil (por consola, vertikis.style.evil(), o #evil): siluetas negras con cuernos y
+//es rabo sobre rojo plano, como un cartel. Los ojos en cruz y la sonrisa cosida van recortados: se
 //es ve el rojo del fondo a través de ellos.
 //es =========================================================================================
 //en =========================================================================================
-//en Extra · Evil (by console, vertikis.style.evil(), or #evil): black horned silhouettes on
-//en flat red, like a poster. The crossed-out eyes and stitched grin are cut out: the red
+//en Extra · Evil (by console, vertikis.style.evil(), or #evil): black silhouettes with horns
+//en and a tail on flat red, like a poster. The crossed-out eyes and stitched grin are cut out: the red
 //en background shows through them.
 //en =========================================================================================
 
@@ -2020,7 +2023,7 @@ function evilPaper() {
 //en They're drawn before the body: the base stays hidden behind the outline. They sit on the
 //en edge as it is right now, so they follow the body when it squashes, and they rotate like
 //en the face.
-const HORN = { at: 0.66, up: 0.3, length: 0.42, width: 0.3 };
+const HORN = { at: 0.68, up: 0.35, length: 0.28, width: 0.2 };
 
 function evilHorns(c) {
   const s = c.r;
@@ -2058,6 +2061,117 @@ function evilHorns(c) {
     ctx.moveTo(bx - (nx * w) / 2, by - (ny * w) / 2);
     ctx.quadraticCurveTo(bx - (nx * w) / 2 + ux * h * 0.6, by - (ny * w) / 2 + uy * h * 0.6, tipX, tipY);
     ctx.quadraticCurveTo(bx + (nx * w) / 2 + ux * h * 0.5, by + (ny * w) / 2 + uy * h * 0.5, bx + (nx * w) / 2, by + (ny * w) / 2);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+//es El rabo: una cadena de puntos con inercia, como el cuerpo (Verlet). Cada punto tira hacia
+//es su sitio en una curva que sale de un lado y se enrosca hacia arriba, y esa curva ondula:
+//es la onda corre del culo a la punta. Cerca del cuerpo tira fuerte y en la punta casi nada,
+//es así que la punta va con retraso, cuelga con la gravedad y latiguea al moverlo.
+//en The tail: a chain of points with inertia, like the body (Verlet). Each point pulls towards
+//en its place on a curve that leaves from one side and curls upwards, and that curve undulates:
+//en the wave runs from the base to the tip. Near the body the pull is strong and at the tip
+//en almost nothing, so the tip lags behind, hangs with gravity and whips when moved.
+const TAIL = { points: 13, at: 2.2, length: 0.15, curl: 0.22, wave: 0.42, waves: 0.75, speed: 3.2, stiff: 0.2, loose: 0.012, friction: 0.9, gravity: 0.25, width: 0.1, tip: 0.05, head: 0.3 };
+
+//es Dónde sale y hacia dónde: por un lado u otro de abajo, distinto para cada vertiki, y girando
+//es con la cara. Lo que mide el cuerpo en esa dirección sale de los puntos, como en los cuernos.
+//en Where it starts and which way: to one side of the bottom, different for each vertiki, and
+//en turning with the face. How far the body reaches that way comes from its points, as with the
+//en horns.
+function tailRoot(c) {
+  const side = Math.sin(c.base * 7) < 0 ? -1 : 1;
+  const a = side * TAIL.at + Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
+  const ux = Math.sin(a);
+  const uy = -Math.cos(a);
+  let edge = 0;
+  for (let i = 0; i < POINTS; i++) edge = Math.max(edge, (c.x[i] - c.cx) * ux + (c.y[i] - c.cy) * uy);
+  return { side, a, x: c.cx + ux * (edge - c.r * 0.04), y: c.cy + uy * (edge - c.r * 0.04) };
+}
+
+//es Un paso del rabo. Se crea la primera vez, ya en su sitio (y al cambiar de visualización).
+//en One tail step. It is created the first time, already in place (and on changing mode).
+function tailStep(c, t) {
+  const root = tailRoot(c);
+  const n = TAIL.points;
+  const seg = c.r * TAIL.length;
+  const fresh = !c.tail;
+  if (fresh) c.tail = { x: new Float32Array(n), y: new Float32Array(n), px: new Float32Array(n), py: new Float32Array(n) };
+  const { x, y, px, py } = c.tail;
+  //es Por dónde va la curva de reposo: se avanza punto a punto, girando un poco en cada uno.
+  //en Where the resting curve goes: it advances point by point, turning a little at each.
+  let gx = root.x;
+  let gy = root.y;
+  for (let i = 0; i < n; i++) {
+    const f = i / (n - 1);
+    const a = root.a - root.side * i * TAIL.curl + Math.sin(i * TAIL.waves - t * TAIL.speed + c.base * 9) * TAIL.wave * f;
+    if (i > 0) {
+      gx += Math.sin(a) * seg;
+      gy -= Math.cos(a) * seg;
+    }
+    if (fresh) {
+      x[i] = px[i] = gx;
+      y[i] = py[i] = gy;
+      continue;
+    }
+    const vx = (x[i] - px[i]) * TAIL.friction;
+    const vy = (y[i] - py[i]) * TAIL.friction;
+    px[i] = x[i];
+    py[i] = y[i];
+    const K = TAIL.loose + (TAIL.stiff - TAIL.loose) * (1 - f) * (1 - f);
+    x[i] += vx + GRAVITY * TAIL.gravity * gravX + (gx - x[i]) * K;
+    y[i] += vy + GRAVITY * TAIL.gravity * gravY + (gy - y[i]) * K;
+  }
+  //es Largo fijo: cada eslabón se corrige desde el cuerpo hacia la punta, y no pasa de los bordes.
+  //en Fixed length: each link is corrected from the body to the tip, and stays inside the edges.
+  x[0] = root.x;
+  y[0] = root.y;
+  for (let i = 1; i < n; i++) {
+    const dx = x[i] - x[i - 1];
+    const dy = y[i] - y[i - 1];
+    const d = Math.hypot(dx, dy) || 1;
+    x[i] = Math.max(0, Math.min(W, x[i - 1] + (dx / d) * seg));
+    y[i] = Math.max(0, Math.min(floor, y[i - 1] + (dy / d) * seg));
+  }
+}
+
+//es Todos los rabos antes que los cuerpos: pasan por detrás y nunca tapan una cara. El trazo
+//es adelgaza hacia la punta y acaba en una punta de flecha.
+//en All the tails before the bodies: they pass behind and never cover a face. The stroke thins
+//en towards the tip and ends in an arrowhead.
+function evilTails() {
+  ctx.save();
+  ctx.strokeStyle = ctx.fillStyle = EVIL_INK;
+  ctx.lineCap = 'round';
+  for (const c of cells) {
+    if (!c.tail) continue;
+    const { x, y } = c.tail;
+    const n = TAIL.points;
+    //es De punto medio a punto medio, con cada punto de control: sale suave, como el cuerpo.
+    //en From midpoint to midpoint, with each point as control: it comes out smooth, like the body.
+    for (let i = 1; i < n - 1; i++) {
+      ctx.lineWidth = Math.max(1.5, c.r * (TAIL.width + (TAIL.tip - TAIL.width) * (i / (n - 1))));
+      ctx.beginPath();
+      ctx.moveTo(i === 1 ? x[0] : (x[i - 1] + x[i]) / 2, i === 1 ? y[0] : (y[i - 1] + y[i]) / 2);
+      ctx.quadraticCurveTo(x[i], y[i], i === n - 2 ? x[n - 1] : (x[i] + x[i + 1]) / 2, i === n - 2 ? y[n - 1] : (y[i] + y[i + 1]) / 2);
+      ctx.stroke();
+    }
+    const dx = x[n - 1] - x[n - 2];
+    const dy = y[n - 1] - y[n - 2];
+    const d = Math.hypot(dx, dy) || 1;
+    const ux = dx / d;
+    const uy = dy / d;
+    const L = c.r * TAIL.head;
+    const bx = x[n - 1] - ux * L * 0.25;
+    const by = y[n - 1] - uy * L * 0.25;
+    ctx.beginPath();
+    ctx.moveTo(x[n - 1] + ux * L, y[n - 1] + uy * L);
+    ctx.lineTo(bx - uy * L * 0.5, by + ux * L * 0.5);
+    ctx.lineTo(x[n - 1], y[n - 1]);
+    ctx.lineTo(bx + uy * L * 0.5, by - ux * L * 0.5);
     ctx.closePath();
     ctx.fill();
   }

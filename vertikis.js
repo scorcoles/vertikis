@@ -340,6 +340,7 @@ function step() {
       }
     }
   }
+  if (evil) for (const c of cells) tailStep(c, t);
 }
 
 // =========================================================================================
@@ -357,6 +358,7 @@ function draw() {
   if (riso) risoPaper();
   if (xmas) xmasSnow();
   if (evil) evilPaper();
+  if (evil) evilTails();
 
   for (const c of cells) {
     if (wire) { wireBody(c); continue; }
@@ -905,6 +907,7 @@ window.vertikis = {
     // desaparecen); al salir, los que estaban desapareciendo se van del todo.
     if (yugop && !wasYugop) yugopStart();
     if (halloween && !wasHalloween) ghostFew();
+    for (const c of cells) c.tail = null;
     if (!yugop) cells = cells.filter((c) => !c.vanishing);
     document.documentElement.classList.toggle('is-pixel', !!pixel);
     document.documentElement.classList.toggle('is-wire', wire);
@@ -1545,8 +1548,8 @@ function risoGrain() {
 }
 
 // =========================================================================================
-// Extra · Evil (por consola, vertikis.style.evil(), o #evil): siluetas negras con cuernos
-// sobre rojo plano, como un cartel. Los ojos en cruz y la sonrisa cosida van recortados: se
+// Extra · Evil (por consola, vertikis.style.evil(), o #evil): siluetas negras con cuernos y
+// rabo sobre rojo plano, como un cartel. Los ojos en cruz y la sonrisa cosida van recortados: se
 // ve el rojo del fondo a través de ellos.
 // =========================================================================================
 
@@ -1565,7 +1568,7 @@ function evilPaper() {
 // poco hacia arriba. Se dibujan antes que el cuerpo: la base queda escondida detrás del
 // contorno. Se colocan en el borde tal como está ahora, así que siguen al cuerpo cuando se
 // aplasta, y giran como la cara.
-const HORN = { at: 0.66, up: 0.3, length: 0.42, width: 0.3 };
+const HORN = { at: 0.68, up: 0.35, length: 0.28, width: 0.2 };
 
 function evilHorns(c) {
   const s = c.r;
@@ -1601,6 +1604,104 @@ function evilHorns(c) {
     ctx.moveTo(bx - (nx * w) / 2, by - (ny * w) / 2);
     ctx.quadraticCurveTo(bx - (nx * w) / 2 + ux * h * 0.6, by - (ny * w) / 2 + uy * h * 0.6, tipX, tipY);
     ctx.quadraticCurveTo(bx + (nx * w) / 2 + ux * h * 0.5, by + (ny * w) / 2 + uy * h * 0.5, bx + (nx * w) / 2, by + (ny * w) / 2);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// El rabo: una cadena de puntos con inercia, como el cuerpo (Verlet). Cada punto tira hacia
+// su sitio en una curva que sale de un lado y se enrosca hacia arriba, y esa curva ondula:
+// la onda corre del culo a la punta. Cerca del cuerpo tira fuerte y en la punta casi nada,
+// así que la punta va con retraso, cuelga con la gravedad y latiguea al moverlo.
+const TAIL = { points: 13, at: 2.2, length: 0.15, curl: 0.22, wave: 0.42, waves: 0.75, speed: 3.2, stiff: 0.2, loose: 0.012, friction: 0.9, gravity: 0.25, width: 0.1, tip: 0.05, head: 0.3 };
+
+// Dónde sale y hacia dónde: por un lado u otro de abajo, distinto para cada vertiki, y girando
+// con la cara. Lo que mide el cuerpo en esa dirección sale de los puntos, como en los cuernos.
+function tailRoot(c) {
+  const side = Math.sin(c.base * 7) < 0 ? -1 : 1;
+  const a = side * TAIL.at + Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
+  const ux = Math.sin(a);
+  const uy = -Math.cos(a);
+  let edge = 0;
+  for (let i = 0; i < POINTS; i++) edge = Math.max(edge, (c.x[i] - c.cx) * ux + (c.y[i] - c.cy) * uy);
+  return { side, a, x: c.cx + ux * (edge - c.r * 0.04), y: c.cy + uy * (edge - c.r * 0.04) };
+}
+
+// Un paso del rabo. Se crea la primera vez, ya en su sitio (y al cambiar de visualización).
+function tailStep(c, t) {
+  const root = tailRoot(c);
+  const n = TAIL.points;
+  const seg = c.r * TAIL.length;
+  const fresh = !c.tail;
+  if (fresh) c.tail = { x: new Float32Array(n), y: new Float32Array(n), px: new Float32Array(n), py: new Float32Array(n) };
+  const { x, y, px, py } = c.tail;
+  // Por dónde va la curva de reposo: se avanza punto a punto, girando un poco en cada uno.
+  let gx = root.x;
+  let gy = root.y;
+  for (let i = 0; i < n; i++) {
+    const f = i / (n - 1);
+    const a = root.a - root.side * i * TAIL.curl + Math.sin(i * TAIL.waves - t * TAIL.speed + c.base * 9) * TAIL.wave * f;
+    if (i > 0) {
+      gx += Math.sin(a) * seg;
+      gy -= Math.cos(a) * seg;
+    }
+    if (fresh) {
+      x[i] = px[i] = gx;
+      y[i] = py[i] = gy;
+      continue;
+    }
+    const vx = (x[i] - px[i]) * TAIL.friction;
+    const vy = (y[i] - py[i]) * TAIL.friction;
+    px[i] = x[i];
+    py[i] = y[i];
+    const K = TAIL.loose + (TAIL.stiff - TAIL.loose) * (1 - f) * (1 - f);
+    x[i] += vx + GRAVITY * TAIL.gravity * gravX + (gx - x[i]) * K;
+    y[i] += vy + GRAVITY * TAIL.gravity * gravY + (gy - y[i]) * K;
+  }
+  // Largo fijo: cada eslabón se corrige desde el cuerpo hacia la punta, y no pasa de los bordes.
+  x[0] = root.x;
+  y[0] = root.y;
+  for (let i = 1; i < n; i++) {
+    const dx = x[i] - x[i - 1];
+    const dy = y[i] - y[i - 1];
+    const d = Math.hypot(dx, dy) || 1;
+    x[i] = Math.max(0, Math.min(W, x[i - 1] + (dx / d) * seg));
+    y[i] = Math.max(0, Math.min(floor, y[i - 1] + (dy / d) * seg));
+  }
+}
+
+// Todos los rabos antes que los cuerpos: pasan por detrás y nunca tapan una cara. El trazo
+// adelgaza hacia la punta y acaba en una punta de flecha.
+function evilTails() {
+  ctx.save();
+  ctx.strokeStyle = ctx.fillStyle = EVIL_INK;
+  ctx.lineCap = 'round';
+  for (const c of cells) {
+    if (!c.tail) continue;
+    const { x, y } = c.tail;
+    const n = TAIL.points;
+    // De punto medio a punto medio, con cada punto de control: sale suave, como el cuerpo.
+    for (let i = 1; i < n - 1; i++) {
+      ctx.lineWidth = Math.max(1.5, c.r * (TAIL.width + (TAIL.tip - TAIL.width) * (i / (n - 1))));
+      ctx.beginPath();
+      ctx.moveTo(i === 1 ? x[0] : (x[i - 1] + x[i]) / 2, i === 1 ? y[0] : (y[i - 1] + y[i]) / 2);
+      ctx.quadraticCurveTo(x[i], y[i], i === n - 2 ? x[n - 1] : (x[i] + x[i + 1]) / 2, i === n - 2 ? y[n - 1] : (y[i] + y[i + 1]) / 2);
+      ctx.stroke();
+    }
+    const dx = x[n - 1] - x[n - 2];
+    const dy = y[n - 1] - y[n - 2];
+    const d = Math.hypot(dx, dy) || 1;
+    const ux = dx / d;
+    const uy = dy / d;
+    const L = c.r * TAIL.head;
+    const bx = x[n - 1] - ux * L * 0.25;
+    const by = y[n - 1] - uy * L * 0.25;
+    ctx.beginPath();
+    ctx.moveTo(x[n - 1] + ux * L, y[n - 1] + uy * L);
+    ctx.lineTo(bx - uy * L * 0.5, by + ux * L * 0.5);
+    ctx.lineTo(x[n - 1], y[n - 1]);
+    ctx.lineTo(bx + uy * L * 0.5, by - ux * L * 0.5);
     ctx.closePath();
     ctx.fill();
   }
