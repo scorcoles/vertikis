@@ -355,6 +355,7 @@ function draw() {
   if (riso) risoPaper();
   if (xmas) xmasSnow();
   if (evil) evilPaper();
+  if (halloween) batsFly(performance.now());
 
   for (const c of cells) {
     if (wire) { wireBody(c); continue; }
@@ -902,6 +903,7 @@ window.vertikis = {
     // desaparecen); al salir, los que estaban desapareciendo se van del todo.
     if (yugop && !wasYugop) yugopStart();
     if (halloween && !wasHalloween) ghostFew();
+    if (halloween && !wasHalloween) batsStart();
     if (!yugop) cells = cells.filter((c) => !c.vanishing);
     document.documentElement.classList.toggle('is-pixel', !!pixel);
     document.documentElement.classList.toggle('is-wire', wire);
@@ -1833,7 +1835,7 @@ function xmasSnow() {
 // #halloween): fantasmitas negros, con
 // la cabeza redonda, una falda ondulada que se mueve y dos ojos blancos en píldora. Los
 // fantasmas vuelan: no tienen gravedad y van a la deriva, cada uno a su aire. En el móvil,
-// inclinarlo sí los empuja, pero poco.
+// inclinarlo sí los empuja, pero poco. De vez en cuando pasa un murciélago por detrás.
 // =========================================================================================
 
 let halloween = false;
@@ -1967,6 +1969,104 @@ function ghostEyes(c, rot, now) {
     ctx.fill();
   }
   ctx.restore();
+}
+
+// Murciélagos: cada pocos segundos cruza uno, por detrás de los fantasmas, batiendo las
+// alas. Entra y sale por fuera de la pantalla siguiendo una curva (de Bézier, con dos puntos
+// de control al azar dentro de la pantalla) que tiembla un poco, como su vuelo. A veces
+// van dos seguidos.
+const BAT = { every: [3000, 9000], time: [3500, 6500], pair: 0.25 };
+// Por dónde entran y por dónde salen: l, izquierda; r, derecha; t, arriba; bl y br, abajo.
+const BAT_ROUTES = [['l', 'r'], ['r', 'l'], ['br', 't'], ['bl', 't'], ['br', 'l'], ['bl', 'r'], ['l', 't'], ['r', 't']];
+let bats = [];
+let batNextAt = 0;
+
+function batsStart() {
+  bats = [];
+  batNextAt = performance.now() + 1500;
+}
+
+function batEdge(side, size) {
+  const out = size * 2;
+  const along = (from, to) => from + Math.random() * (to - from);
+  if (side === 'l') return [-out, along(0.1, 0.8) * H];
+  if (side === 'r') return [W + out, along(0.1, 0.8) * H];
+  if (side === 't') return [along(0.1, 0.9) * W, -out];
+  if (side === 'bl') return [along(0, 0.35) * W, H + out];
+  return [along(0.65, 1) * W, H + out];
+}
+
+function makeBat(now) {
+  const size = Math.max(14, Math.min(W, H) * 0.035) * (0.8 + Math.random() * 0.5);
+  const [from, to] = BAT_ROUTES[Math.floor(Math.random() * BAT_ROUTES.length)];
+  return {
+    size,
+    from: batEdge(from, size),
+    a: [Math.random() * W, Math.random() * H],
+    b: [Math.random() * W, Math.random() * H],
+    to: batEdge(to, size),
+    start: now,
+    time: BAT.time[0] + Math.random() * (BAT.time[1] - BAT.time[0]),
+    phase: Math.random() * Math.PI * 2,
+  };
+}
+
+const bezier = (p, a, b, q, t) => {
+  const u = 1 - t;
+  return u * u * u * p + 3 * u * u * t * a + 3 * u * t * t * b + t * t * t * q;
+};
+
+function batShape(b, x, y, now) {
+  const s = b.size;
+  // El aleteo: lift levanta las puntas de las alas (y las baja al bajar).
+  const lift = Math.sin(now * 0.028 + b.phase) * 0.7;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = GHOST;
+  for (const side of [-1, 1]) {
+    const P = (px, py) => [side * px * s, (py - lift * px) * s];
+    ctx.beginPath();
+    ctx.moveTo(...P(0.08, -0.14));
+    ctx.quadraticCurveTo(...P(0.45, -0.42), ...P(1.05, -0.18));
+    ctx.quadraticCurveTo(...P(0.82, -0.02), ...P(0.68, 0.2));
+    ctx.quadraticCurveTo(...P(0.52, 0.02), ...P(0.36, 0.24));
+    ctx.quadraticCurveTo(...P(0.22, 0.08), ...P(0.08, 0.2));
+    ctx.closePath();
+    ctx.fill();
+    // Una oreja.
+    ctx.beginPath();
+    ctx.moveTo(side * 0.03 * s, -0.2 * s);
+    ctx.lineTo(side * 0.14 * s, -0.42 * s);
+    ctx.lineTo(side * 0.16 * s, -0.14 * s);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.ellipse(0, 0.02 * s, 0.17 * s, 0.3 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = GHOST_EYE;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(side * 0.07 * s, -0.12 * s, Math.max(0.8, 0.03 * s), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function batsFly(now) {
+  if (now > batNextAt) {
+    bats.push(makeBat(now));
+    if (Math.random() < BAT.pair) bats.push(makeBat(now + 500));
+    batNextAt = now + BAT.every[0] + Math.random() * (BAT.every[1] - BAT.every[0]);
+  }
+  bats = bats.filter((b) => now < b.start + b.time);
+  for (const b of bats) {
+    const t = (now - b.start) / b.time;
+    if (t < 0) continue;
+    const x = bezier(b.from[0], b.a[0], b.b[0], b.to[0], t);
+    const y = bezier(b.from[1], b.a[1], b.b[1], b.to[1], t);
+    batShape(b, x + Math.sin(now * 0.009 + b.phase) * b.size * 0.35, y + Math.sin(now * 0.013 + b.phase) * b.size * 0.5, now);
+  }
 }
 
 let emptySince = null;
