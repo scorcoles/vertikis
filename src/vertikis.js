@@ -566,6 +566,7 @@ function draw() {
     }
     ctx.fill();
     if (xmas) xmasHat(c); // @17
+    if (evil) evilRim(c); // @17
     if (evil) evilHorns(c); // @17
     //>> 3-3
     //es Para verlo: los 28 puntos del anillo.
@@ -673,7 +674,7 @@ function draw() {
     if (wire) ctx.fillStyle = WIRE_LINE; // @17
     if (yugop) ctx.fillStyle = '#000'; // @17
     if (riso) ctx.fillStyle = RISO_INKS[risoInk(d.color) % 2]; // @17
-    if (evil) ctx.fillStyle = EVIL_BODY[1]; // @17
+    if (evil) ctx.fillStyle = EVIL_RIM; // @17
     if (xmas) ctx.fillStyle = d.xmas; // @17
     ctx.beginPath();
     ctx.arc(d.x, d.y, Math.max(0.1, d.r * d.life), 0, Math.PI * 2);
@@ -1968,25 +1969,25 @@ function risoGrain() {
 }
 
 //es =========================================================================================
-//es Extra · Evil (solo por consola: vertikis.style.evil()): los mismos vertikis, pero negros,
-//es con cuernecitos, los ojos en cruz y una sonrisa en V, maligna, en rojo, sobre un fondo
-//es rojo sangre con lluvia de caracteres de terminal, como de hacker.
+//es Extra · Evil (solo por consola: vertikis.style.evil()): de noche, casi negros, con un filo
+//es rojo, cuernecitos rojos, ojos en cruz y una sonrisa cosida en rojo neón que brilla. Por
+//es detrás, sobre negro, una lluvia tenue de caracteres de terminal, como de hacker.
 //es =========================================================================================
 //en =========================================================================================
-//en Extra · Evil (console only: vertikis.style.evil()): the same vertikis, but black, with
-//en little horns, crossed-out eyes and an evil V-shaped grin, in red, on a blood-red
-//en background with a rain of terminal characters, hacker style.
+//en Extra · Evil (console only: vertikis.style.evil()): at night, nearly black, with a red
+//en rim, little red horns, crossed-out eyes and a stitched grin in glowing neon red. Behind,
+//en on black, a faint rain of terminal characters, hacker style.
 //en =========================================================================================
 
 let evil = false;
-//es Negro con un poco de volumen: luz, cuerpo y sombra del degradado.
-//en Black with a little volume: light, body and shadow of the gradient.
-const EVIL_BODY = ['#3a3a3a', '#1a1a1a', '#050505'];
-const EVIL_INK = '#e3342b';
-//es El fondo: rojo sangre, más claro en el centro y casi negro en los bordes.
-//en The background: blood red, lighter in the middle and nearly black at the edges.
-const EVIL_PAPER = ['#8f1717', '#3f0707'];
-const EVIL_HORN = '#222222';
+//es Gris muy oscuro con un poco de volumen: luz, cuerpo y sombra del degradado.
+//en Very dark grey with a little volume: light, body and shadow of the gradient.
+const EVIL_BODY = ['#333333', '#1a1a1a', '#0b0b0b'];
+const EVIL_RIM = '#d81e1e';
+const EVIL_NEON = '#ff2a1f';
+const EVIL_GLOW = 'rgba(255, 30, 20, 0.9)';
+const EVIL_HORN = ['#ff3b2f', '#9c0f0b'];
+const EVIL_PAPER = ['#141414', '#050505'];
 
 function evilPaper() {
   const g = ctx.createRadialGradient(W / 2, H * 0.6, 0, W / 2, H * 0.6, Math.hypot(W, H) * 0.6);
@@ -1997,12 +1998,12 @@ function evilPaper() {
 }
 
 //es La lluvia: columnas de caracteres que caen fila a fila, con la cabeza más clara y una
-//es estela que se apaga. De vez en cuando, un carácter cambia.
+//es estela que se apaga. De vez en cuando, un carácter cambia. Tenue: es el fondo.
 //en The rain: columns of characters falling row by row, with a brighter head and a trail
-//en that fades out. Every now and then, a character changes.
+//en that fades out. Every now and then, a character changes. Faint: it's the background.
 const RAIN = { size: 14, trail: 14, chars: '0123456789ABCDEF<>/{}[]#$%&*+=:;!?' };
-const RAIN_INK = '#ff4a3d';
-const RAIN_HEAD = '#ffc2bb';
+const RAIN_INK = '#b3150f';
+const RAIN_HEAD = '#ff4a3d';
 let rain = [];
 
 const rainChar = () => RAIN.chars[Math.floor(Math.random() * RAIN.chars.length)];
@@ -2033,45 +2034,10 @@ function evilRain() {
     for (let k = 0; k < RAIN.trail; k++) {
       const row = head - k;
       if (row < 0 || row * fs > H) continue;
-      ctx.globalAlpha = k === 0 ? 0.85 : 0.5 * (1 - k / RAIN.trail);
+      ctx.globalAlpha = k === 0 ? 0.55 : 0.35 * (1 - k / RAIN.trail);
       ctx.fillStyle = k === 0 ? RAIN_HEAD : RAIN_INK;
       ctx.fillText(col.chars[row], i * fs, row * fs);
     }
-  }
-  ctx.restore();
-}
-
-//es Dos cuernecitos curvos hacia fuera, girados como la cara, clavados en lo más alto del
-//es cuerpo (bajan cuando se aplasta, como el gorro de xmas).
-//en Two little horns curving outwards, rotated like the face, stuck into the top of the
-//en body (they drop when it squashes, like the xmas hat).
-function evilHorns(c) {
-  const s = c.r;
-  const rot = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
-  const cos = Math.cos(rot);
-  const sin = Math.sin(rot);
-  let top = 0;
-  for (let i = 0; i < POINTS; i++) {
-    const ly = -(c.x[i] - c.cx) * sin + (c.y[i] - c.cy) * cos;
-    if (ly < top) top = ly;
-  }
-  const y = top + s * 0.14;
-  const w = s * 0.2;
-  const h = s * 0.3;
-  ctx.save();
-  ctx.translate(c.cx, c.cy);
-  ctx.rotate(rot);
-  ctx.fillStyle = EVIL_HORN;
-  for (const side of [-1, 1]) {
-    const x = side * s * 0.36;
-    const tipX = x + side * s * 0.13;
-    const tipY = y - h;
-    ctx.beginPath();
-    ctx.moveTo(x - w / 2, y);
-    ctx.quadraticCurveTo(x - w / 2 + side * s * 0.02, y - h * 0.6, tipX, tipY);
-    ctx.quadraticCurveTo(x + w / 2 - side * s * 0.02, y - h * 0.45, x + w / 2, y);
-    ctx.closePath();
-    ctx.fill();
   }
   ctx.restore();
 }
@@ -2084,13 +2050,65 @@ function evilFill(c) {
   return g;
 }
 
+//es El filo rojo: el mismo contorno que se acaba de rellenar, trazado fino.
+//en The red rim: the same outline that was just filled, stroked thin.
+function evilRim(c) {
+  ctx.strokeStyle = EVIL_RIM;
+  ctx.lineWidth = Math.max(1, c.r * 0.022);
+  ctx.stroke();
+}
+
+//es Dos cuernecitos rojos curvos hacia arriba y un poco hacia fuera, girados como la cara y
+//es clavados en lo más alto del cuerpo (bajan cuando se aplasta, como el gorro de xmas).
+//en Two little red horns curving up and slightly outwards, rotated like the face and stuck
+//en into the top of the body (they drop when it squashes, like the xmas hat).
+function evilHorns(c) {
+  const s = c.r;
+  const rot = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
+  const cos = Math.cos(rot);
+  const sin = Math.sin(rot);
+  let top = 0;
+  for (let i = 0; i < POINTS; i++) {
+    const ly = -(c.x[i] - c.cx) * sin + (c.y[i] - c.cy) * cos;
+    if (ly < top) top = ly;
+  }
+  const y = top + s * 0.16;
+  const w = s * 0.2;
+  const h = s * 0.34;
+  ctx.save();
+  ctx.translate(c.cx, c.cy);
+  ctx.rotate(rot);
+  for (const side of [-1, 1]) {
+    const x = side * s * 0.4;
+    const tipX = x + side * s * 0.1;
+    const tipY = y - h;
+    //es Luz por el lado de dentro y sombra por fuera.
+    //en Light on the inner side and shadow on the outer one.
+    const g = ctx.createLinearGradient(x - side * w / 2, 0, x + side * w / 2, 0);
+    g.addColorStop(0, EVIL_HORN[0]);
+    g.addColorStop(1, EVIL_HORN[1]);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2, y);
+    ctx.quadraticCurveTo(x - w / 2 - side * s * 0.04, y - h * 0.55, tipX, tipY);
+    ctx.quadraticCurveTo(x + w / 2 - side * s * 0.06, y - h * 0.5, x + w / 2, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+//es La cara, en neón: cada trazo con un resplandor rojo alrededor.
+//en The face, in neon: every stroke with a red glow around it.
 function evilFace(c, rot, now) {
   const s = c.r;
   ctx.save();
   ctx.translate(c.cx, c.cy);
   ctx.rotate(rot);
-  ctx.strokeStyle = EVIL_INK;
-  ctx.lineWidth = Math.max(1, s * 0.035);
+  ctx.strokeStyle = EVIL_NEON;
+  ctx.shadowColor = EVIL_GLOW;
+  ctx.shadowBlur = Math.max(4, s * 0.12);
+  ctx.lineWidth = Math.max(1, s * 0.04);
   //es Ojos: dos cruces que miran al puntero. Al parpadear, la cruz se aplasta; con «> <»
   //es o con el susto, se hacen un poco más grandes.
   //en Eyes: two crosses that follow the pointer. Blinking squashes the cross; squeezed or
@@ -2098,27 +2116,43 @@ function evilFace(c, rot, now) {
   const t = (now - c.blinkAt) / 130;
   const open = t >= 0 && t <= 1 ? Math.abs(1 - 2 * t) : 1;
   const big = now < c.squintUntil || now < c.surprisedUntil ? 1.3 : 1;
-  const d = Math.max(1.5, s * 0.06) * big;
+  const d = Math.max(1.5, s * 0.075) * big;
+  ctx.beginPath();
   for (const side of [-1, 1]) {
-    const ex = side * s * 0.22 + c.lookX * s;
-    const ey = -s * 0.12 + c.lookY * s;
+    const ex = side * s * 0.24 + c.lookX * s;
+    const ey = -s * 0.14 + c.lookY * s;
     const dy = Math.max(0.4, d * open);
-    ctx.beginPath();
     ctx.moveTo(ex - d, ey - dy);
     ctx.lineTo(ex + d, ey + dy);
     ctx.moveTo(ex + d, ey - dy);
     ctx.lineTo(ex - d, ey + dy);
-    ctx.stroke();
   }
-  //es Boca: una V con las comisuras subidas. Con el ratón encima, más honda.
-  //en Mouth: a V with the corners turned up. When you hover, deeper.
-  const w = s * 0.2;
-  const top = s * 0.05;
-  const h = s * (0.1 + 0.06 * c.smile);
+  ctx.stroke();
+  //es Boca: una sonrisa ancha, cosida con puntadas cortas que la cruzan, cada una un poco
+  //es torcida (siempre igual para cada vertiki). Con el ratón encima, más honda.
+  //en Mouth: a wide grin, sewn with short stitches across it, each one slightly crooked
+  //en (always the same for each vertiki). When you hover, deeper.
+  const w = s * 0.27;
+  const h = Math.max(0.05, w * (0.3 + 0.35 * c.smile));
+  const top = s * 0.1;
+  const R = (w * w + h * h) / (2 * h);
+  const centerY = top + h - R;
+  const a0 = Math.asin(Math.min(1, (top - centerY) / R));
+  ctx.lineWidth = Math.max(1, s * 0.035);
   ctx.beginPath();
-  ctx.moveTo(-w, top - s * 0.03);
-  ctx.lineTo(0, top + h);
-  ctx.lineTo(w, top - s * 0.03);
+  ctx.arc(0, centerY, R, a0, Math.PI - a0);
+  const stitches = 6;
+  const len = s * 0.055;
+  for (let k = 0; k < stitches; k++) {
+    const a = a0 + ((Math.PI - 2 * a0) * (k + 0.5)) / stitches;
+    const px = Math.cos(a) * R;
+    const py = centerY + Math.sin(a) * R;
+    const skew = Math.sin(c.base * 13 + k * 2.1) * 0.35;
+    const nx = Math.cos(a + skew);
+    const ny = Math.sin(a + skew);
+    ctx.moveTo(px - nx * len, py - ny * len);
+    ctx.lineTo(px + nx * len, py + ny * len);
+  }
   ctx.stroke();
   ctx.restore();
 }

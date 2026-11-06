@@ -377,6 +377,7 @@ function draw() {
     }
     ctx.fill();
     if (xmas) xmasHat(c);
+    if (evil) evilRim(c);
     if (evil) evilHorns(c);
   }
 
@@ -458,7 +459,7 @@ function draw() {
     if (wire) ctx.fillStyle = WIRE_LINE;
     if (yugop) ctx.fillStyle = '#000';
     if (riso) ctx.fillStyle = RISO_INKS[risoInk(d.color) % 2];
-    if (evil) ctx.fillStyle = EVIL_BODY[1];
+    if (evil) ctx.fillStyle = EVIL_RIM;
     if (xmas) ctx.fillStyle = d.xmas;
     ctx.beginPath();
     ctx.arc(d.x, d.y, Math.max(0.1, d.r * d.life), 0, Math.PI * 2);
@@ -1528,18 +1529,19 @@ function risoGrain() {
 }
 
 // =========================================================================================
-// Extra · Evil (solo por consola: vertikis.style.evil()): los mismos vertikis, pero negros,
-// con cuernecitos, los ojos en cruz y una sonrisa en V, maligna, en rojo, sobre un fondo
-// rojo sangre con lluvia de caracteres de terminal, como de hacker.
+// Extra · Evil (solo por consola: vertikis.style.evil()): de noche, casi negros, con un filo
+// rojo, cuernecitos rojos, ojos en cruz y una sonrisa cosida en rojo neón que brilla. Por
+// detrás, sobre negro, una lluvia tenue de caracteres de terminal, como de hacker.
 // =========================================================================================
 
 let evil = false;
-// Negro con un poco de volumen: luz, cuerpo y sombra del degradado.
-const EVIL_BODY = ['#3a3a3a', '#1a1a1a', '#050505'];
-const EVIL_INK = '#e3342b';
-// El fondo: rojo sangre, más claro en el centro y casi negro en los bordes.
-const EVIL_PAPER = ['#8f1717', '#3f0707'];
-const EVIL_HORN = '#222222';
+// Gris muy oscuro con un poco de volumen: luz, cuerpo y sombra del degradado.
+const EVIL_BODY = ['#333333', '#1a1a1a', '#0b0b0b'];
+const EVIL_RIM = '#d81e1e';
+const EVIL_NEON = '#ff2a1f';
+const EVIL_GLOW = 'rgba(255, 30, 20, 0.9)';
+const EVIL_HORN = ['#ff3b2f', '#9c0f0b'];
+const EVIL_PAPER = ['#141414', '#050505'];
 
 function evilPaper() {
   const g = ctx.createRadialGradient(W / 2, H * 0.6, 0, W / 2, H * 0.6, Math.hypot(W, H) * 0.6);
@@ -1550,10 +1552,10 @@ function evilPaper() {
 }
 
 // La lluvia: columnas de caracteres que caen fila a fila, con la cabeza más clara y una
-// estela que se apaga. De vez en cuando, un carácter cambia.
+// estela que se apaga. De vez en cuando, un carácter cambia. Tenue: es el fondo.
 const RAIN = { size: 14, trail: 14, chars: '0123456789ABCDEF<>/{}[]#$%&*+=:;!?' };
-const RAIN_INK = '#ff4a3d';
-const RAIN_HEAD = '#ffc2bb';
+const RAIN_INK = '#b3150f';
+const RAIN_HEAD = '#ff4a3d';
 let rain = [];
 
 const rainChar = () => RAIN.chars[Math.floor(Math.random() * RAIN.chars.length)];
@@ -1584,43 +1586,10 @@ function evilRain() {
     for (let k = 0; k < RAIN.trail; k++) {
       const row = head - k;
       if (row < 0 || row * fs > H) continue;
-      ctx.globalAlpha = k === 0 ? 0.85 : 0.5 * (1 - k / RAIN.trail);
+      ctx.globalAlpha = k === 0 ? 0.55 : 0.35 * (1 - k / RAIN.trail);
       ctx.fillStyle = k === 0 ? RAIN_HEAD : RAIN_INK;
       ctx.fillText(col.chars[row], i * fs, row * fs);
     }
-  }
-  ctx.restore();
-}
-
-// Dos cuernecitos curvos hacia fuera, girados como la cara, clavados en lo más alto del
-// cuerpo (bajan cuando se aplasta, como el gorro de xmas).
-function evilHorns(c) {
-  const s = c.r;
-  const rot = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
-  const cos = Math.cos(rot);
-  const sin = Math.sin(rot);
-  let top = 0;
-  for (let i = 0; i < POINTS; i++) {
-    const ly = -(c.x[i] - c.cx) * sin + (c.y[i] - c.cy) * cos;
-    if (ly < top) top = ly;
-  }
-  const y = top + s * 0.14;
-  const w = s * 0.2;
-  const h = s * 0.3;
-  ctx.save();
-  ctx.translate(c.cx, c.cy);
-  ctx.rotate(rot);
-  ctx.fillStyle = EVIL_HORN;
-  for (const side of [-1, 1]) {
-    const x = side * s * 0.36;
-    const tipX = x + side * s * 0.13;
-    const tipY = y - h;
-    ctx.beginPath();
-    ctx.moveTo(x - w / 2, y);
-    ctx.quadraticCurveTo(x - w / 2 + side * s * 0.02, y - h * 0.6, tipX, tipY);
-    ctx.quadraticCurveTo(x + w / 2 - side * s * 0.02, y - h * 0.45, x + w / 2, y);
-    ctx.closePath();
-    ctx.fill();
   }
   ctx.restore();
 }
@@ -1633,38 +1602,100 @@ function evilFill(c) {
   return g;
 }
 
+// El filo rojo: el mismo contorno que se acaba de rellenar, trazado fino.
+function evilRim(c) {
+  ctx.strokeStyle = EVIL_RIM;
+  ctx.lineWidth = Math.max(1, c.r * 0.022);
+  ctx.stroke();
+}
+
+// Dos cuernecitos rojos curvos hacia arriba y un poco hacia fuera, girados como la cara y
+// clavados en lo más alto del cuerpo (bajan cuando se aplasta, como el gorro de xmas).
+function evilHorns(c) {
+  const s = c.r;
+  const rot = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
+  const cos = Math.cos(rot);
+  const sin = Math.sin(rot);
+  let top = 0;
+  for (let i = 0; i < POINTS; i++) {
+    const ly = -(c.x[i] - c.cx) * sin + (c.y[i] - c.cy) * cos;
+    if (ly < top) top = ly;
+  }
+  const y = top + s * 0.16;
+  const w = s * 0.2;
+  const h = s * 0.34;
+  ctx.save();
+  ctx.translate(c.cx, c.cy);
+  ctx.rotate(rot);
+  for (const side of [-1, 1]) {
+    const x = side * s * 0.4;
+    const tipX = x + side * s * 0.1;
+    const tipY = y - h;
+    // Luz por el lado de dentro y sombra por fuera.
+    const g = ctx.createLinearGradient(x - side * w / 2, 0, x + side * w / 2, 0);
+    g.addColorStop(0, EVIL_HORN[0]);
+    g.addColorStop(1, EVIL_HORN[1]);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2, y);
+    ctx.quadraticCurveTo(x - w / 2 - side * s * 0.04, y - h * 0.55, tipX, tipY);
+    ctx.quadraticCurveTo(x + w / 2 - side * s * 0.06, y - h * 0.5, x + w / 2, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// La cara, en neón: cada trazo con un resplandor rojo alrededor.
 function evilFace(c, rot, now) {
   const s = c.r;
   ctx.save();
   ctx.translate(c.cx, c.cy);
   ctx.rotate(rot);
-  ctx.strokeStyle = EVIL_INK;
-  ctx.lineWidth = Math.max(1, s * 0.035);
+  ctx.strokeStyle = EVIL_NEON;
+  ctx.shadowColor = EVIL_GLOW;
+  ctx.shadowBlur = Math.max(4, s * 0.12);
+  ctx.lineWidth = Math.max(1, s * 0.04);
   // Ojos: dos cruces que miran al puntero. Al parpadear, la cruz se aplasta; con «> <»
   // o con el susto, se hacen un poco más grandes.
   const t = (now - c.blinkAt) / 130;
   const open = t >= 0 && t <= 1 ? Math.abs(1 - 2 * t) : 1;
   const big = now < c.squintUntil || now < c.surprisedUntil ? 1.3 : 1;
-  const d = Math.max(1.5, s * 0.06) * big;
+  const d = Math.max(1.5, s * 0.075) * big;
+  ctx.beginPath();
   for (const side of [-1, 1]) {
-    const ex = side * s * 0.22 + c.lookX * s;
-    const ey = -s * 0.12 + c.lookY * s;
+    const ex = side * s * 0.24 + c.lookX * s;
+    const ey = -s * 0.14 + c.lookY * s;
     const dy = Math.max(0.4, d * open);
-    ctx.beginPath();
     ctx.moveTo(ex - d, ey - dy);
     ctx.lineTo(ex + d, ey + dy);
     ctx.moveTo(ex + d, ey - dy);
     ctx.lineTo(ex - d, ey + dy);
-    ctx.stroke();
   }
-  // Boca: una V con las comisuras subidas. Con el ratón encima, más honda.
-  const w = s * 0.2;
-  const top = s * 0.05;
-  const h = s * (0.1 + 0.06 * c.smile);
+  ctx.stroke();
+  // Boca: una sonrisa ancha, cosida con puntadas cortas que la cruzan, cada una un poco
+  // torcida (siempre igual para cada vertiki). Con el ratón encima, más honda.
+  const w = s * 0.27;
+  const h = Math.max(0.05, w * (0.3 + 0.35 * c.smile));
+  const top = s * 0.1;
+  const R = (w * w + h * h) / (2 * h);
+  const centerY = top + h - R;
+  const a0 = Math.asin(Math.min(1, (top - centerY) / R));
+  ctx.lineWidth = Math.max(1, s * 0.035);
   ctx.beginPath();
-  ctx.moveTo(-w, top - s * 0.03);
-  ctx.lineTo(0, top + h);
-  ctx.lineTo(w, top - s * 0.03);
+  ctx.arc(0, centerY, R, a0, Math.PI - a0);
+  const stitches = 6;
+  const len = s * 0.055;
+  for (let k = 0; k < stitches; k++) {
+    const a = a0 + ((Math.PI - 2 * a0) * (k + 0.5)) / stitches;
+    const px = Math.cos(a) * R;
+    const py = centerY + Math.sin(a) * R;
+    const skew = Math.sin(c.base * 13 + k * 2.1) * 0.35;
+    const nx = Math.cos(a + skew);
+    const ny = Math.sin(a + skew);
+    ctx.moveTo(px - nx * len, py - ny * len);
+    ctx.lineTo(px + nx * len, py + ny * len);
+  }
   ctx.stroke();
   ctx.restore();
 }
