@@ -530,7 +530,6 @@ function draw() {
   if (riso) risoPaper(); // @17
   if (xmas) xmasSnow(); // @17
   if (evil) evilPaper(); // @17
-  if (evil) evilRain(); // @17
 
   for (const c of cells) {
     if (wire) { wireBody(c); continue; } // @17
@@ -566,7 +565,7 @@ function draw() {
     }
     ctx.fill();
     if (xmas) xmasHat(c); // @17
-    if (evil) evilRim(c); // @17
+    if (evil) evilRim(); // @17
     if (evil) evilHorns(c); // @17
     //>> 3-3
     //es Para verlo: los 28 puntos del anillo.
@@ -1970,13 +1969,13 @@ function risoGrain() {
 
 //es =========================================================================================
 //es Extra · Evil (solo por consola: vertikis.style.evil()): de noche, casi negros, con un filo
-//es rojo, cuernecitos rojos, ojos en cruz y una sonrisa cosida en rojo neón que brilla. Por
-//es detrás, sobre negro, una lluvia tenue de caracteres de terminal, como de hacker.
+//es rojo, cuernecitos rojos, ojos en cruz y una sonrisa cosida en rojo neón que brilla, sobre
+//es un fondo negro.
 //es =========================================================================================
 //en =========================================================================================
 //en Extra · Evil (console only: vertikis.style.evil()): at night, nearly black, with a red
-//en rim, little red horns, crossed-out eyes and a stitched grin in glowing neon red. Behind,
-//en on black, a faint rain of terminal characters, hacker style.
+//en rim, little red horns, crossed-out eyes and a stitched grin in glowing neon red, on a
+//en black background.
 //en =========================================================================================
 
 let evil = false;
@@ -1997,51 +1996,6 @@ function evilPaper() {
   ctx.fillRect(0, 0, W, H);
 }
 
-//es La lluvia: columnas de caracteres que caen fila a fila, con la cabeza más clara y una
-//es estela que se apaga. De vez en cuando, un carácter cambia. Tenue: es el fondo.
-//en The rain: columns of characters falling row by row, with a brighter head and a trail
-//en that fades out. Every now and then, a character changes. Faint: it's the background.
-const RAIN = { size: 14, trail: 14, chars: '0123456789ABCDEF<>/{}[]#$%&*+=:;!?' };
-const RAIN_INK = '#b3150f';
-const RAIN_HEAD = '#ff4a3d';
-let rain = [];
-
-const rainChar = () => RAIN.chars[Math.floor(Math.random() * RAIN.chars.length)];
-
-function evilRain() {
-  const fs = RAIN.size;
-  const cols = Math.ceil(W / fs);
-  const rows = Math.ceil(H / fs) + RAIN.trail;
-  if (rain.length !== cols || rain[0]?.chars.length !== rows) {
-    rain = Array.from({ length: cols }, () => ({
-      y: Math.random() * -rows * fs,
-      v: 0.15 + Math.random() * 0.35,
-      chars: Array.from({ length: rows }, rainChar),
-    }));
-  }
-  ctx.save();
-  ctx.font = `${fs}px ui-monospace, Menlo, Consolas, monospace`;
-  ctx.textBaseline = 'top';
-  for (let i = 0; i < cols; i++) {
-    const col = rain[i];
-    col.y += col.v * fs * 0.25;
-    const head = Math.floor(col.y / fs);
-    if (head - RAIN.trail > rows) {
-      col.y = Math.random() * -H * 0.5;
-      col.v = 0.15 + Math.random() * 0.35;
-    }
-    if (Math.random() < 0.08) col.chars[Math.floor(Math.random() * rows)] = rainChar();
-    for (let k = 0; k < RAIN.trail; k++) {
-      const row = head - k;
-      if (row < 0 || row * fs > H) continue;
-      ctx.globalAlpha = k === 0 ? 0.55 : 0.35 * (1 - k / RAIN.trail);
-      ctx.fillStyle = k === 0 ? RAIN_HEAD : RAIN_INK;
-      ctx.fillText(col.chars[row], i * fs, row * fs);
-    }
-  }
-  ctx.restore();
-}
-
 function evilFill(c) {
   const g = ctx.createRadialGradient(c.cx - c.r * 0.35, c.cy - c.r * 0.4, c.r * 0.05, c.cx, c.cy, c.r * 1.25);
   g.addColorStop(0, EVIL_BODY[0]);
@@ -2050,11 +2004,13 @@ function evilFill(c) {
   return g;
 }
 
-//es El filo rojo: el mismo contorno que se acaba de rellenar, trazado fino.
-//en The red rim: the same outline that was just filled, stroked thin.
-function evilRim(c) {
+//es El filo rojo: el mismo contorno que se acaba de rellenar, trazado finísimo (menos de un
+//es píxel: en pantallas retina, un píxel y medio real).
+//en The red rim: the same outline that was just filled, stroked very thin (under a pixel: on
+//en retina screens, a pixel and a half for real).
+function evilRim() {
   ctx.strokeStyle = EVIL_RIM;
-  ctx.lineWidth = Math.max(1, c.r * 0.022);
+  ctx.lineWidth = 0.75;
   ctx.stroke();
 }
 

@@ -351,7 +351,6 @@ function draw() {
   if (riso) risoPaper();
   if (xmas) xmasSnow();
   if (evil) evilPaper();
-  if (evil) evilRain();
 
   for (const c of cells) {
     if (wire) { wireBody(c); continue; }
@@ -377,7 +376,7 @@ function draw() {
     }
     ctx.fill();
     if (xmas) xmasHat(c);
-    if (evil) evilRim(c);
+    if (evil) evilRim();
     if (evil) evilHorns(c);
   }
 
@@ -1530,8 +1529,8 @@ function risoGrain() {
 
 // =========================================================================================
 // Extra · Evil (solo por consola: vertikis.style.evil()): de noche, casi negros, con un filo
-// rojo, cuernecitos rojos, ojos en cruz y una sonrisa cosida en rojo neón que brilla. Por
-// detrás, sobre negro, una lluvia tenue de caracteres de terminal, como de hacker.
+// rojo, cuernecitos rojos, ojos en cruz y una sonrisa cosida en rojo neón que brilla, sobre
+// un fondo negro.
 // =========================================================================================
 
 let evil = false;
@@ -1551,49 +1550,6 @@ function evilPaper() {
   ctx.fillRect(0, 0, W, H);
 }
 
-// La lluvia: columnas de caracteres que caen fila a fila, con la cabeza más clara y una
-// estela que se apaga. De vez en cuando, un carácter cambia. Tenue: es el fondo.
-const RAIN = { size: 14, trail: 14, chars: '0123456789ABCDEF<>/{}[]#$%&*+=:;!?' };
-const RAIN_INK = '#b3150f';
-const RAIN_HEAD = '#ff4a3d';
-let rain = [];
-
-const rainChar = () => RAIN.chars[Math.floor(Math.random() * RAIN.chars.length)];
-
-function evilRain() {
-  const fs = RAIN.size;
-  const cols = Math.ceil(W / fs);
-  const rows = Math.ceil(H / fs) + RAIN.trail;
-  if (rain.length !== cols || rain[0]?.chars.length !== rows) {
-    rain = Array.from({ length: cols }, () => ({
-      y: Math.random() * -rows * fs,
-      v: 0.15 + Math.random() * 0.35,
-      chars: Array.from({ length: rows }, rainChar),
-    }));
-  }
-  ctx.save();
-  ctx.font = `${fs}px ui-monospace, Menlo, Consolas, monospace`;
-  ctx.textBaseline = 'top';
-  for (let i = 0; i < cols; i++) {
-    const col = rain[i];
-    col.y += col.v * fs * 0.25;
-    const head = Math.floor(col.y / fs);
-    if (head - RAIN.trail > rows) {
-      col.y = Math.random() * -H * 0.5;
-      col.v = 0.15 + Math.random() * 0.35;
-    }
-    if (Math.random() < 0.08) col.chars[Math.floor(Math.random() * rows)] = rainChar();
-    for (let k = 0; k < RAIN.trail; k++) {
-      const row = head - k;
-      if (row < 0 || row * fs > H) continue;
-      ctx.globalAlpha = k === 0 ? 0.55 : 0.35 * (1 - k / RAIN.trail);
-      ctx.fillStyle = k === 0 ? RAIN_HEAD : RAIN_INK;
-      ctx.fillText(col.chars[row], i * fs, row * fs);
-    }
-  }
-  ctx.restore();
-}
-
 function evilFill(c) {
   const g = ctx.createRadialGradient(c.cx - c.r * 0.35, c.cy - c.r * 0.4, c.r * 0.05, c.cx, c.cy, c.r * 1.25);
   g.addColorStop(0, EVIL_BODY[0]);
@@ -1602,10 +1558,11 @@ function evilFill(c) {
   return g;
 }
 
-// El filo rojo: el mismo contorno que se acaba de rellenar, trazado fino.
-function evilRim(c) {
+// El filo rojo: el mismo contorno que se acaba de rellenar, trazado finísimo (menos de un
+// píxel: en pantallas retina, un píxel y medio real).
+function evilRim() {
   ctx.strokeStyle = EVIL_RIM;
-  ctx.lineWidth = Math.max(1, c.r * 0.022);
+  ctx.lineWidth = 0.75;
   ctx.stroke();
 }
 
