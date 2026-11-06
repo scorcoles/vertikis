@@ -181,19 +181,19 @@ canvas.is-dragging {
   background: #eee;
 }
 
-/* Evil (vertikis.style.evil()): fondo negro (lo pinta el canvas), el pie en gris claro y
-   la etiqueta en rojo. */
+/* Evil (vertikis.style.evil()): fondo rojo (lo pinta el canvas), el pie en blanco y la
+   etiqueta en negro. */
 .is-evil body {
-  background: #050505;
+  background: #d0120b;
 }
 
 .is-evil .credit {
-  color: #cfcfcf;
+  color: #fff;
 }
 
 .is-evil .credit__tag {
-  background: #d81e1e;
-  color: #000;
+  background: #000;
+  color: #fff;
 }
 
 /* En escritorio, el pie un punto más grande. */

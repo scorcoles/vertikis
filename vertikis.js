@@ -371,7 +371,7 @@ function draw() {
     ctx.fillStyle = g;
     if (yugop) ctx.fillStyle = '#000';
     if (evil) evilHorns(c);
-    if (evil) ctx.fillStyle = EVIL_BODY;
+    if (evil) ctx.fillStyle = EVIL_INK;
     if (xmas) ctx.fillStyle = xmasFill(c);
     // Paso 3 · Contorno suave: curvas que pasan por los puntos medios del anillo.
     ctx.beginPath();
@@ -384,7 +384,6 @@ function draw() {
     }
     ctx.fill();
     if (xmas) xmasHat(c);
-    if (evil) evilRim();
   }
 
   // Paso 12 · Caras: dos ojos que miran al puntero y parpadean, y una sonrisa que se curva
@@ -466,7 +465,7 @@ function draw() {
     if (wire) ctx.fillStyle = WIRE_LINE;
     if (yugop) ctx.fillStyle = '#000';
     if (riso) ctx.fillStyle = RISO_INKS[risoInk(d.color) % 2];
-    if (evil) ctx.fillStyle = EVIL_RIM;
+    if (evil) ctx.fillStyle = EVIL_INK;
     if (xmas) ctx.fillStyle = d.xmas;
     if (halloween) ctx.fillStyle = GHOST;
     ctx.beginPath();
@@ -1546,42 +1545,27 @@ function risoGrain() {
 }
 
 // =========================================================================================
-// Extra · Evil (por consola, vertikis.style.evil(), o #evil): de noche, negros, con un filo
-// rojo, cuernecitos rojos, ojos en cruz y una sonrisa cosida en rojo neón que brilla, sobre
-// un fondo negro.
+// Extra · Evil (por consola, vertikis.style.evil(), o #evil): siluetas negras con cuernos
+// sobre rojo plano, como un cartel. Los ojos en cruz y la sonrisa cosida van recortados: se
+// ve el rojo del fondo a través de ellos.
 // =========================================================================================
 
 let evil = false;
-// Negro plano, sin degradado.
-const EVIL_BODY = '#000000';
-// El filo, del mismo rojo neón que los ojos y la boca.
-const EVIL_NEON = '#ff2a1f';
-const EVIL_RIM = EVIL_NEON;
-const EVIL_GLOW = 'rgba(255, 30, 20, 0.9)';
-const EVIL_HORN = ['#ff3b2f', '#9c0f0b'];
-const EVIL_PAPER = ['#141414', '#050505'];
+const EVIL_INK = '#000000';
+const EVIL_PAPER = '#d0120b';
+// Lo grande que es la cara respecto a las de los demás modos.
+const EVIL_FACE = 1.4;
 
 function evilPaper() {
-  const g = ctx.createRadialGradient(W / 2, H * 0.6, 0, W / 2, H * 0.6, Math.hypot(W, H) * 0.6);
-  g.addColorStop(0, EVIL_PAPER[0]);
-  g.addColorStop(1, EVIL_PAPER[1]);
-  ctx.fillStyle = g;
+  ctx.fillStyle = EVIL_PAPER;
   ctx.fillRect(0, 0, W, H);
 }
 
-// El filo rojo: el mismo contorno que se acaba de rellenar, trazado finísimo (menos de un
-// píxel: en pantallas retina, un píxel y medio real).
-function evilRim() {
-  ctx.strokeStyle = EVIL_RIM;
-  ctx.lineWidth = 0.75;
-  ctx.stroke();
-}
-
-// Dos cuernecitos rojos que salen del borde, en diagonal hacia arriba y hacia fuera, y
-// se curvan un poco hacia arriba. Se dibujan antes que el cuerpo: la base queda escondida
-// detrás del contorno (y de su filo rojo). Se colocan en el borde tal como está ahora, así
-// que siguen al cuerpo cuando se aplasta, y giran como la cara.
-const HORN = { at: 0.72, up: 0.45, length: 0.22, width: 0.15 };
+// Dos cuernos que salen del borde, en diagonal hacia arriba y hacia fuera, y se curvan un
+// poco hacia arriba. Se dibujan antes que el cuerpo: la base queda escondida detrás del
+// contorno. Se colocan en el borde tal como está ahora, así que siguen al cuerpo cuando se
+// aplasta, y giran como la cara.
+const HORN = { at: 0.66, up: 0.3, length: 0.42, width: 0.3 };
 
 function evilHorns(c) {
   const s = c.r;
@@ -1612,10 +1596,7 @@ function evilHorns(c) {
     const tipY = by - Math.cos(t) * h;
     const nx = -uy;
     const ny = ux;
-    const g = ctx.createLinearGradient(bx - nx * w * side, by - ny * w * side, bx + nx * w * side, by + ny * w * side);
-    g.addColorStop(0, EVIL_HORN[0]);
-    g.addColorStop(1, EVIL_HORN[1]);
-    ctx.fillStyle = g;
+    ctx.fillStyle = EVIL_INK;
     ctx.beginPath();
     ctx.moveTo(bx - (nx * w) / 2, by - (ny * w) / 2);
     ctx.quadraticCurveTo(bx - (nx * w) / 2 + ux * h * 0.6, by - (ny * w) / 2 + uy * h * 0.6, tipX, tipY);
@@ -1626,16 +1607,16 @@ function evilHorns(c) {
   ctx.restore();
 }
 
-// La cara, en neón: cada trazo con un resplandor rojo alrededor.
+// La cara, recortada: los trazos van del color del fondo.
 function evilFace(c, rot, now) {
   const s = c.r;
   ctx.save();
   ctx.translate(c.cx, c.cy);
   ctx.rotate(rot);
-  ctx.strokeStyle = EVIL_NEON;
-  ctx.shadowColor = EVIL_GLOW;
-  ctx.shadowBlur = Math.max(4, s * 0.12);
-  ctx.lineWidth = Math.max(1, s * 0.04);
+  ctx.scale(EVIL_FACE, EVIL_FACE);
+  ctx.lineCap = 'butt';
+  ctx.strokeStyle = EVIL_PAPER;
+  ctx.lineWidth = Math.max(1, s * 0.06);
   // Ojos: dos cruces que miran al puntero. Al parpadear, la cruz se aplasta; con «> <»
   // o con el susto, se hacen un poco más grandes.
   const t = (now - c.blinkAt) / 130;
@@ -1661,7 +1642,7 @@ function evilFace(c, rot, now) {
   const R = (w * w + h * h) / (2 * h);
   const centerY = top + h - R;
   const a0 = Math.asin(Math.min(1, (top - centerY) / R));
-  ctx.lineWidth = Math.max(1, s * 0.035);
+  ctx.lineWidth = Math.max(1, s * 0.045);
   ctx.beginPath();
   ctx.arc(0, centerY, R, a0, Math.PI - a0);
   const stitches = 6;
