@@ -2150,11 +2150,12 @@ function grabWeed(e) {
 
 function tumbleweed(now) {
   // Sale a los 2 s de quedarse sin vertikis y, si nadie crea uno, vuelve 6 s después de irse.
+  // En halloween, a los 5 s: antes tienen que irse los murciélagos del último fantasma.
   if (cells.length > 0) {
     emptySince = null;
   } else if (emptySince === null) {
     emptySince = now;
-    weedNextAt = now + 2000;
+    weedNextAt = now + (halloween ? 5000 : 2000);
   } else if (!weed && now > weedNextAt) {
     weed = makeWeed();
   }

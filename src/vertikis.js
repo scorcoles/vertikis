@@ -2681,13 +2681,14 @@ function grabWeed(e) {
 
 function tumbleweed(now) {
   //es Sale a los 2 s de quedarse sin vertikis y, si nadie crea uno, vuelve 6 s después de irse.
+  //es En halloween, a los 5 s: antes tienen que irse los murciélagos del último fantasma.
   //en It appears 2 s after the last vertiki is gone and, if nobody creates one, comes back 6 s
-  //en after leaving.
+  //en after leaving. In halloween, after 5 s: the last ghost's bats have to leave first.
   if (cells.length > 0) {
     emptySince = null;
   } else if (emptySince === null) {
     emptySince = now;
-    weedNextAt = now + 2000;
+    weedNextAt = now + (halloween ? 5000 : 2000);
   } else if (!weed && now > weedNextAt) {
     weed = makeWeed();
   }
