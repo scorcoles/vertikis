@@ -1835,7 +1835,8 @@ function xmasSnow() {
 // #halloween): fantasmitas negros, con
 // la cabeza redonda, una falda ondulada que se mueve y dos ojos blancos en píldora. Los
 // fantasmas vuelan: no tienen gravedad y van a la deriva, cada uno a su aire. En el móvil,
-// inclinarlo sí los empuja, pero poco. Al explotar, se deshacen en murciélagos.
+// inclinarlo sí los empuja, pero poco. Al explotar, se deshacen en murciélagos, y cuando
+// no queda ninguno, en vez de la pelusa cruza de vez en cuando un murciélago suelto.
 // =========================================================================================
 
 let halloween = false;
@@ -1976,7 +1977,7 @@ function ghostEyes(c, rot, now) {
 // curva de Bézier hasta fuera de la pantalla, batiendo las alas. Cuanto más grande, más
 // murciélagos. Nacen pequeños y crecen al salir, y pasan por delante de los otros fantasmas:
 // por detrás, negro sobre negro, no se verían.
-const BAT = { time: [2600, 4400], count: [4, 9], curve: 0.25, up: 0.9 };
+const BAT = { time: [2600, 4400], count: [4, 9], curve: 0.25, up: 0.9, first: 5000, lone: [6000, 18000], crossing: [3500, 6500] };
 let bats = [];
 
 // Los chillidos: unos dos segundos de chirridos cortos y agudos, a tonos distintos para que
@@ -2051,6 +2052,49 @@ function batsBurst(c) {
   }
 }
 
+// Sin fantasmas, de vez en cuando cruza un murciélago suelto. El primero, cuando ya se han
+// ido los del último fantasma; los demás, cada BAT.lone. Entra y sale por fuera de la
+// pantalla, por una de BAT_ROUTES y una curva al azar: l, izquierda; r, derecha; t, arriba;
+// bl y br, abajo.
+const BAT_ROUTES = [['l', 'r'], ['r', 'l'], ['br', 't'], ['bl', 't'], ['br', 'l'], ['bl', 'r'], ['l', 't'], ['r', 't']];
+
+function batEdge(side, size) {
+  const out = size * 2;
+  const along = (from, to) => from + Math.random() * (to - from);
+  if (side === 'l') return [-out, along(0.1, 0.8) * H];
+  if (side === 'r') return [W + out, along(0.1, 0.8) * H];
+  if (side === 't') return [along(0.1, 0.9) * W, -out];
+  if (side === 'bl') return [along(0, 0.35) * W, H + out];
+  return [along(0.65, 1) * W, H + out];
+}
+
+function batLone(now) {
+  if (cells.length > 0) {
+    emptySince = null;
+    return;
+  }
+  if (emptySince === null) {
+    emptySince = now;
+    weedNextAt = now + BAT.first;
+    return;
+  }
+  if (now < weedNextAt) return;
+  const size = Math.max(14, Math.min(W, H) * 0.035) * (0.8 + Math.random() * 0.5);
+  const [from, to] = BAT_ROUTES[Math.floor(Math.random() * BAT_ROUTES.length)];
+  bats.push({
+    size,
+    grown: true,
+    from: batEdge(from, size),
+    a: [Math.random() * W, Math.random() * H],
+    b: [Math.random() * W, Math.random() * H],
+    to: batEdge(to, size),
+    start: now,
+    time: BAT.crossing[0] + Math.random() * (BAT.crossing[1] - BAT.crossing[0]),
+    phase: Math.random() * Math.PI * 2,
+  });
+  weedNextAt = now + BAT.lone[0] + Math.random() * (BAT.lone[1] - BAT.lone[0]);
+}
+
 const bezier = (p, a, b, q, t) => {
   const u = 1 - t;
   return u * u * u * p + 3 * u * u * t * a + 3 * u * t * t * b + t * t * t * q;
@@ -2100,7 +2144,7 @@ function batsFly(now) {
     if (t < 0) continue;
     const x = bezier(b.from[0], b.a[0], b.b[0], b.to[0], t);
     const y = bezier(b.from[1], b.a[1], b.b[1], b.to[1], t);
-    batShape(b, x + Math.sin(now * 0.009 + b.phase) * b.size * 0.35, y + Math.sin(now * 0.013 + b.phase) * b.size * 0.5, now, Math.min(1, 0.3 + t * 5));
+    batShape(b, x + Math.sin(now * 0.009 + b.phase) * b.size * 0.35, y + Math.sin(now * 0.013 + b.phase) * b.size * 0.5, now, b.grown ? 1 : Math.min(1, 0.3 + t * 5));
   }
 }
 
@@ -2150,12 +2194,18 @@ function grabWeed(e) {
 
 function tumbleweed(now) {
   // Sale a los 2 s de quedarse sin vertikis y, si nadie crea uno, vuelve 6 s después de irse.
-  // En halloween, a los 5 s: antes tienen que irse los murciélagos del último fantasma.
+  // En halloween no hay pelusa: la pantalla vacía es de los murciélagos (ver batLone).
+  if (halloween) {
+    weed = null;
+    weedGrab = null;
+    batLone(now);
+    return;
+  }
   if (cells.length > 0) {
     emptySince = null;
   } else if (emptySince === null) {
     emptySince = now;
-    weedNextAt = now + (halloween ? 5000 : 2000);
+    weedNextAt = now + 2000;
   } else if (!weed && now > weedNextAt) {
     weed = makeWeed();
   }
