@@ -1719,7 +1719,6 @@ function xmasFill(c) {
 const HAT = { spring: 0.07, friction: 0.9, gravity: 0.35, lowest: 0.12 };
 
 function xmasHat(c) {
-  const s = c.r;
   const rot = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
   const cos = Math.cos(rot);
   const sin = Math.sin(rot);
@@ -1729,15 +1728,23 @@ function xmasHat(c) {
     if (ly < top) top = ly;
   }
   // Hacia dónde cae la punta: siempre el mismo lado para cada vertiki.
-  const lean = Math.sin(c.base * 7);
+  hatOn(c, c.cx, c.cy, c.r, rot, top, Math.sin(c.base * 7));
+}
+
+// El gorro sobre cualquier cosa (un vertiki o el estepicursor): «owner» guarda la física
+// de la punta; (cx, cy) es el centro, s el tamaño, rot el giro, top lo más alto del cuerpo
+// (en su sistema girado) y lean hacia dónde cae la punta (de −1 a 1).
+function hatOn(c, cx, cy, s, rot, top, lean) {
+  const cos = Math.cos(rot);
+  const sin = Math.sin(rot);
   const y = top + s * 0.18;
   const bw = s * 0.44;
   const restX = lean * s * 0.4;
   const restY = y - s * 0.58;
   const len = Math.hypot(restX, restY - y);
   // De la cara al mundo y vuelta (girar rot y mover al centro).
-  const toX = (lx, ly) => c.cx + lx * cos - ly * sin;
-  const toY = (lx, ly) => c.cy + lx * sin + ly * cos;
+  const toX = (lx, ly) => cx + lx * cos - ly * sin;
+  const toY = (lx, ly) => cy + lx * sin + ly * cos;
   const baseX = toX(0, y);
   const baseY = toY(0, y);
   const restWX = toX(restX, restY);
@@ -1767,7 +1774,7 @@ function xmasHat(c) {
   const tipX = tx;
   const tipY = y + ty;
   ctx.save();
-  ctx.translate(c.cx, c.cy);
+  ctx.translate(cx, cy);
   ctx.rotate(rot);
   ctx.fillStyle = HAT_RED;
   ctx.beginPath();
@@ -2085,6 +2092,8 @@ function tumbleweed(now) {
   };
   if (!pixel) face(wire ? WIRE_PAPER : riso ? RISO_PAPER : '#fff', 0);
   ctx.restore();
+  // En xmas, también lleva gorro: derecho como su cara, encima del núcleo de pelo.
+  if (xmas) hatOn(w, w.x, w.y, w.r * 1.2, 0, -w.r * 0.85, 0.6);
   if (pixel) pixelFace(w, w.x, w.y, 0, s, false, false, '#000', now);
 }
 
