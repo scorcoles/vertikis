@@ -2488,7 +2488,7 @@ function ghostEyes(c, rot, now) {
 //en Bats: every few seconds one crosses, behind the ghosts, flapping its wings. It comes in and
 //en goes out off-screen along a curve (a Bézier, with two random control points on screen)
 //en that trembles a little, like their flight. Sometimes two go together.
-const BAT = { every: [3000, 9000], time: [3500, 6500], pair: 0.25 };
+const BAT = { every: [12000, 36000], time: [3500, 6500], pair: 0.25 };
 //es Por dónde entran y por dónde salen: l, izquierda; r, derecha; t, arriba; bl y br, abajo.
 //en Where they come in and go out: l, left; r, right; t, top; bl and br, bottom.
 const BAT_ROUTES = [['l', 'r'], ['r', 'l'], ['br', 't'], ['bl', 't'], ['br', 'l'], ['bl', 'r'], ['l', 't'], ['r', 't']];

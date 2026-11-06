@@ -1975,7 +1975,7 @@ function ghostEyes(c, rot, now) {
 // alas. Entra y sale por fuera de la pantalla siguiendo una curva (de Bézier, con dos puntos
 // de control al azar dentro de la pantalla) que tiembla un poco, como su vuelo. A veces
 // van dos seguidos.
-const BAT = { every: [3000, 9000], time: [3500, 6500], pair: 0.25 };
+const BAT = { every: [12000, 36000], time: [3500, 6500], pair: 0.25 };
 // Por dónde entran y por dónde salen: l, izquierda; r, derecha; t, arriba; bl y br, abajo.
 const BAT_ROUTES = [['l', 'r'], ['r', 'l'], ['br', 't'], ['bl', 't'], ['br', 'l'], ['bl', 'r'], ['l', 't'], ['r', 't']];
 let bats = [];
