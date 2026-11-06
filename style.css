@@ -169,6 +169,20 @@ canvas.is-dragging {
   background: #eee;
 }
 
+/* Evil (vertikis.style.evil()): fondo rojo sangre (lo pinta el canvas) y el pie en claro. */
+.is-evil body {
+  background: #3f0707;
+}
+
+.is-evil .credit {
+  color: #f4d9d6;
+}
+
+.is-evil .credit__tag {
+  background: #000;
+  color: #e3342b;
+}
+
 /* En escritorio, el pie un punto más grande. */
 @media (min-width: 64rem) and (pointer: fine) {
   .credit {

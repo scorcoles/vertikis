@@ -350,6 +350,7 @@ function draw() {
   if (wire) wirePaper();
   if (riso) risoPaper();
   if (xmas) xmasSnow();
+  if (evil) evilPaper();
 
   for (const c of cells) {
     if (wire) { wireBody(c); continue; }
@@ -375,6 +376,7 @@ function draw() {
     }
     ctx.fill();
     if (xmas) xmasHat(c);
+    if (evil) evilHorns(c);
   }
 
   // Paso 12 · Caras: dos ojos que miran al puntero y parpadean, y una sonrisa que se curva
@@ -1526,13 +1528,58 @@ function risoGrain() {
 
 // =========================================================================================
 // Extra · Evil (solo por consola: vertikis.style.evil()): los mismos vertikis, pero negros,
-// con los ojos en cruz y una sonrisa en V, maligna, en rojo.
+// con cuernecitos, los ojos en cruz y una sonrisa en V, maligna, en rojo, sobre un fondo
+// rojo sangre.
 // =========================================================================================
 
 let evil = false;
 // Negro con un poco de volumen: luz, cuerpo y sombra del degradado.
 const EVIL_BODY = ['#3a3a3a', '#1a1a1a', '#050505'];
 const EVIL_INK = '#e3342b';
+// El fondo: rojo sangre, más claro en el centro y casi negro en los bordes.
+const EVIL_PAPER = ['#8f1717', '#3f0707'];
+const EVIL_HORN = '#222222';
+
+function evilPaper() {
+  const g = ctx.createRadialGradient(W / 2, H * 0.6, 0, W / 2, H * 0.6, Math.hypot(W, H) * 0.6);
+  g.addColorStop(0, EVIL_PAPER[0]);
+  g.addColorStop(1, EVIL_PAPER[1]);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+// Dos cuernecitos curvos hacia fuera, girados como la cara, clavados en lo más alto del
+// cuerpo (bajan cuando se aplasta, como el gorro de xmas).
+function evilHorns(c) {
+  const s = c.r;
+  const rot = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
+  const cos = Math.cos(rot);
+  const sin = Math.sin(rot);
+  let top = 0;
+  for (let i = 0; i < POINTS; i++) {
+    const ly = -(c.x[i] - c.cx) * sin + (c.y[i] - c.cy) * cos;
+    if (ly < top) top = ly;
+  }
+  const y = top + s * 0.14;
+  const w = s * 0.2;
+  const h = s * 0.3;
+  ctx.save();
+  ctx.translate(c.cx, c.cy);
+  ctx.rotate(rot);
+  ctx.fillStyle = EVIL_HORN;
+  for (const side of [-1, 1]) {
+    const x = side * s * 0.36;
+    const tipX = x + side * s * 0.13;
+    const tipY = y - h;
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2, y);
+    ctx.quadraticCurveTo(x - w / 2 + side * s * 0.02, y - h * 0.6, tipX, tipY);
+    ctx.quadraticCurveTo(x + w / 2 - side * s * 0.02, y - h * 0.45, x + w / 2, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
 
 function evilFill(c) {
   const g = ctx.createRadialGradient(c.cx - c.r * 0.35, c.cy - c.r * 0.4, c.r * 0.05, c.cx, c.cy, c.r * 1.25);

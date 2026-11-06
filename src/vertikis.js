@@ -529,6 +529,7 @@ function draw() {
   if (wire) wirePaper(); // @17
   if (riso) risoPaper(); // @17
   if (xmas) xmasSnow(); // @17
+  if (evil) evilPaper(); // @17
 
   for (const c of cells) {
     if (wire) { wireBody(c); continue; } // @17
@@ -564,6 +565,7 @@ function draw() {
     }
     ctx.fill();
     if (xmas) xmasHat(c); // @17
+    if (evil) evilHorns(c); // @17
     //>> 3-3
     //es Para verlo: los 28 puntos del anillo.
     //en To see it: the 28 points of the ring.
@@ -1966,11 +1968,13 @@ function risoGrain() {
 
 //es =========================================================================================
 //es Extra · Evil (solo por consola: vertikis.style.evil()): los mismos vertikis, pero negros,
-//es con los ojos en cruz y una sonrisa en V, maligna, en rojo.
+//es con cuernecitos, los ojos en cruz y una sonrisa en V, maligna, en rojo, sobre un fondo
+//es rojo sangre.
 //es =========================================================================================
 //en =========================================================================================
 //en Extra · Evil (console only: vertikis.style.evil()): the same vertikis, but black, with
-//en crossed-out eyes and an evil V-shaped grin, in red.
+//en little horns, crossed-out eyes and an evil V-shaped grin, in red, on a blood-red
+//en background.
 //en =========================================================================================
 
 let evil = false;
@@ -1978,6 +1982,53 @@ let evil = false;
 //en Black with a little volume: light, body and shadow of the gradient.
 const EVIL_BODY = ['#3a3a3a', '#1a1a1a', '#050505'];
 const EVIL_INK = '#e3342b';
+//es El fondo: rojo sangre, más claro en el centro y casi negro en los bordes.
+//en The background: blood red, lighter in the middle and nearly black at the edges.
+const EVIL_PAPER = ['#8f1717', '#3f0707'];
+const EVIL_HORN = '#222222';
+
+function evilPaper() {
+  const g = ctx.createRadialGradient(W / 2, H * 0.6, 0, W / 2, H * 0.6, Math.hypot(W, H) * 0.6);
+  g.addColorStop(0, EVIL_PAPER[0]);
+  g.addColorStop(1, EVIL_PAPER[1]);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+//es Dos cuernecitos curvos hacia fuera, girados como la cara, clavados en lo más alto del
+//es cuerpo (bajan cuando se aplasta, como el gorro de xmas).
+//en Two little horns curving outwards, rotated like the face, stuck into the top of the
+//en body (they drop when it squashes, like the xmas hat).
+function evilHorns(c) {
+  const s = c.r;
+  const rot = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
+  const cos = Math.cos(rot);
+  const sin = Math.sin(rot);
+  let top = 0;
+  for (let i = 0; i < POINTS; i++) {
+    const ly = -(c.x[i] - c.cx) * sin + (c.y[i] - c.cy) * cos;
+    if (ly < top) top = ly;
+  }
+  const y = top + s * 0.14;
+  const w = s * 0.2;
+  const h = s * 0.3;
+  ctx.save();
+  ctx.translate(c.cx, c.cy);
+  ctx.rotate(rot);
+  ctx.fillStyle = EVIL_HORN;
+  for (const side of [-1, 1]) {
+    const x = side * s * 0.36;
+    const tipX = x + side * s * 0.13;
+    const tipY = y - h;
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2, y);
+    ctx.quadraticCurveTo(x - w / 2 + side * s * 0.02, y - h * 0.6, tipX, tipY);
+    ctx.quadraticCurveTo(x + w / 2 - side * s * 0.02, y - h * 0.45, x + w / 2, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
 
 function evilFill(c) {
   const g = ctx.createRadialGradient(c.cx - c.r * 0.35, c.cy - c.r * 0.4, c.r * 0.05, c.cx, c.cy, c.r * 1.25);
