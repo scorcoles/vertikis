@@ -210,6 +210,7 @@ function step() {
   if (halloween) ghostSpace();
   for (const c of cells) {
     const [wx, wy] = halloween ? ghostDrift(c, t) : [0, 0];
+    const ay = halloween ? ghostFall(c, G) : G * gravY;
     // Paso 4 · Inercia con fricción, más la gravedad (integración de Verlet: la velocidad
     // es la diferencia entre la posición actual y la anterior).
     for (let i = 0; i < POINTS; i++) {
@@ -220,7 +221,7 @@ function step() {
       c.px[i] = c.x[i];
       c.py[i] = c.y[i];
       c.x[i] += vx + G * gravX + wx;
-      c.y[i] += vy + G * gravY + wy;
+      c.y[i] += vy + ay + wy;
     }
 
     // Paso 11 · Arrastre: todo el vertiki se acerca al puntero. La posición anterior se
@@ -333,6 +334,7 @@ function step() {
         c.py[i] = c.y[i] - (c.y[i] - c.py[i]) * 0.6;
       }
       if (c.y[i] < 0 || c.y[i] > floor) {
+        if (halloween && c.y[i] > floor) ghostLand(c);
         c.y[i] = c.y[i] < 0 ? 0 : floor;
         c.px[i] = c.x[i] - (c.x[i] - c.px[i]) * 0.6;
       }
@@ -369,7 +371,7 @@ function draw() {
     ctx.fillStyle = g;
     if (yugop) ctx.fillStyle = '#000';
     if (evil) evilHorns(c);
-    if (evil) ctx.fillStyle = evilFill(c);
+    if (evil) ctx.fillStyle = EVIL_BODY;
     if (xmas) ctx.fillStyle = xmasFill(c);
     // Paso 3 · Contorno suave: curvas que pasan por los puntos medios del anillo.
     ctx.beginPath();
@@ -1544,14 +1546,14 @@ function risoGrain() {
 }
 
 // =========================================================================================
-// Extra · Evil (por consola, vertikis.style.evil(), o #evil): de noche, casi negros, con un filo
+// Extra · Evil (por consola, vertikis.style.evil(), o #evil): de noche, negros, con un filo
 // rojo, cuernecitos rojos, ojos en cruz y una sonrisa cosida en rojo neón que brilla, sobre
 // un fondo negro.
 // =========================================================================================
 
 let evil = false;
-// Gris muy oscuro con un poco de volumen: luz, cuerpo y sombra del degradado.
-const EVIL_BODY = ['#333333', '#1a1a1a', '#0b0b0b'];
+// Negro plano, sin degradado.
+const EVIL_BODY = '#000000';
 // El filo, del mismo rojo neón que los ojos y la boca.
 const EVIL_NEON = '#ff2a1f';
 const EVIL_RIM = EVIL_NEON;
@@ -1565,14 +1567,6 @@ function evilPaper() {
   g.addColorStop(1, EVIL_PAPER[1]);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
-}
-
-function evilFill(c) {
-  const g = ctx.createRadialGradient(c.cx - c.r * 0.35, c.cy - c.r * 0.4, c.r * 0.05, c.cx, c.cy, c.r * 1.25);
-  g.addColorStop(0, EVIL_BODY[0]);
-  g.addColorStop(0.55, EVIL_BODY[1]);
-  g.addColorStop(1, EVIL_BODY[2]);
-  return g;
 }
 
 // El filo rojo: el mismo contorno que se acaba de rellenar, trazado finísimo (menos de un
@@ -1835,8 +1829,9 @@ function xmasSnow() {
 // #halloween): fantasmitas negros, con
 // la cabeza redonda, una falda ondulada que se mueve y dos ojos blancos en píldora. Los
 // fantasmas vuelan: no tienen gravedad y van a la deriva, cada uno a su aire. En el móvil,
-// inclinarlo sí los empuja, pero poco. Al explotar, se deshacen en murciélagos, y cuando
-// no queda ninguno, en vez de la pelusa cruza de vez en cuando un murciélago suelto.
+// inclinarlo sí los empuja, pero poco, y el que llega al suelo vuelve a subir. Al explotar,
+// se deshacen en murciélagos, y cuando no queda ninguno, en vez de la pelusa cruza de vez en
+// cuando un murciélago suelto.
 // =========================================================================================
 
 let halloween = false;
@@ -1846,7 +1841,9 @@ let halloween = false;
 // fill: cuánto de la pantalla ocupan (los demás modos, la mitad). few: cuántos como mínimo.
 // space y push: a qué
 // distancia empiezan a apartarse (en sumas de radios) y con cuánta fuerza.
-const HALLOWEEN = { tilt: touchDevice ? 0.1 : 0.3, drift: 0.008, skirt: 0.22, wave: 0.11, waves: 3, fill: 0.25, few: touchDevice ? 4 : 7, space: 1.35, push: 0.0025 };
+// rise: lo que empuja hacia arriba la subida (con la fricción, unos 200 px/s como mucho).
+// climb: cuánto suben, entre estas dos fracciones de la pantalla.
+const HALLOWEEN = { tilt: touchDevice ? 0.1 : 0.3, drift: 0.008, skirt: 0.22, wave: 0.11, waves: 3, fill: 0.25, few: touchDevice ? 4 : 7, space: 1.35, push: 0.0025, rise: 0.035, climb: [0.6, 0.95] };
 const GHOST = '#111111';
 const GHOST_EYE = '#ffffff';
 
@@ -1903,6 +1900,25 @@ const ghostDrift = (c, t) => [
   Math.sin(t * 0.4 + c.base * 5) * HALLOWEEN.drift,
   Math.cos(t * 0.31 + c.base * 8.5) * HALLOWEEN.drift,
 ];
+
+// En el móvil la inclinación los acaba llevando abajo, así que el que toca el suelo emprende
+// la subida: c.rise son los subpasos que le quedan (0, no sube). Va por tiempo y no hasta una
+// altura porque otro fantasma le puede cerrar el paso: así nunca se queda atascado empujando.
+function ghostLand(c) {
+  if (c.rise || c === grabbed) return;
+  const [near, far] = HALLOWEEN.climb;
+  const speed = HALLOWEEN.rise / (1 - FRICTION);
+  c.rise = Math.round((H * (near + Math.random() * (far - near))) / speed);
+}
+
+// Lo que tira de él en vertical: la inclinación o, mientras sube, la subida, que afloja en
+// el último medio segundo. Si lo agarran, se acabó la subida.
+function ghostFall(c, G) {
+  if (c === grabbed) c.rise = 0;
+  if (!c.rise) return G * gravY;
+  c.rise--;
+  return -HALLOWEEN.rise * Math.max(0.3, Math.min(1, c.rise / 120));
+}
 
 // El cuerpo: el mismo anillo, pero visto girado como la cara, con la mitad de abajo
 // estirada hacia abajo y ondulada (la onda corre despacio: la falda se mueve). Para que la
