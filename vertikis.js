@@ -1840,25 +1840,32 @@ let halloween = false;
 // tilt: la gravedad al inclinar el móvil (fracción de la normal). drift: lo que empuja la
 // deriva en cada subpaso (con la fricción, unos 50 px/s como mucho). skirt: lo que baja la
 // falda y lo alta que es la onda, en fracción del radio.
-// fill: cuánto de la pantalla ocupan (los demás modos, la mitad). space y push: a qué
+// fill: cuánto de la pantalla ocupan (los demás modos, la mitad). few: cuántos como mínimo.
+// space y push: a qué
 // distancia empiezan a apartarse (en sumas de radios) y con cuánta fuerza.
-const HALLOWEEN = { tilt: touchDevice ? 0.1 : 0.3, drift: 0.008, skirt: 0.22, wave: 0.11, waves: 3, fill: 0.25, space: 1.35, push: 0.0025 };
+const HALLOWEEN = { tilt: touchDevice ? 0.1 : 0.3, drift: 0.008, skirt: 0.22, wave: 0.11, waves: 3, fill: 0.25, few: touchDevice ? 4 : 7, space: 1.35, push: 0.0025 };
 const GHOST = '#111111';
 const GHOST_EYE = '#ffffff';
 
-// Al entrar en halloween, menos: se quedan los que, al azar, caben en «fill» de la
-// pantalla (al menos tres). Los demás se van sin más.
+// Al entrar en halloween, menos: se eligen al azar y se queda cada uno que quepa en «fill»
+// de la pantalla; el que no cabe se salta y se sigue probando con el siguiente. Siempre al
+// menos «few» (si esos no caben, encogen poco a poco hasta caber). Los demás se van sin más.
 function ghostFew() {
   const room = W * H * HALLOWEEN.fill;
   let area = 0;
-  cells = cells
-    .map((c) => [Math.random(), c])
-    .sort((a, b) => a[0] - b[0])
-    .map(([, c]) => c)
-    .filter((c, n) => {
-      area += Math.PI * c.r * c.r;
-      return n < 3 || area <= room;
-    });
+  const keep = [];
+  const shuffled = cells.map((c) => [Math.random(), c]).sort((a, b) => a[0] - b[0]);
+  for (const [, c] of shuffled) {
+    const size = Math.PI * c.r * c.r;
+    if (keep.length >= HALLOWEEN.few && area + size > room) continue;
+    keep.push(c);
+    area += size;
+  }
+  cells = keep;
+  if (area > room) {
+    const k = Math.sqrt(room / area);
+    for (const c of cells) c.target = c.rest = c.r * k;
+  }
   if (grabbed && !cells.includes(grabbed)) grabbed = null;
   if (hovered && !cells.includes(hovered)) hovered = null;
 }

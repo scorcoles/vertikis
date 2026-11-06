@@ -2335,29 +2335,38 @@ let halloween = false;
 //en tilt: gravity when tilting the phone (fraction of the normal one). drift: how hard the
 //en drift pushes each substep (with friction, about 50 px/s at most). skirt: how far the
 //en skirt drops and how tall the wave is, as a fraction of the radius.
-//es fill: cuánto de la pantalla ocupan (los demás modos, la mitad). space y push: a qué
+//es fill: cuánto de la pantalla ocupan (los demás modos, la mitad). few: cuántos como mínimo.
+//es space y push: a qué
 //es distancia empiezan a apartarse (en sumas de radios) y con cuánta fuerza.
-//en fill: how much of the screen they take up (the other modes, half). space and push: at
+//en fill: how much of the screen they take up (the other modes, half). few: the fewest there
+//en can be. space and push: at
 //en what distance they start moving apart (in sums of radii) and how hard.
-const HALLOWEEN = { tilt: touchDevice ? 0.1 : 0.3, drift: 0.008, skirt: 0.22, wave: 0.11, waves: 3, fill: 0.25, space: 1.35, push: 0.0025 };
+const HALLOWEEN = { tilt: touchDevice ? 0.1 : 0.3, drift: 0.008, skirt: 0.22, wave: 0.11, waves: 3, fill: 0.25, few: touchDevice ? 4 : 7, space: 1.35, push: 0.0025 };
 const GHOST = '#111111';
 const GHOST_EYE = '#ffffff';
 
-//es Al entrar en halloween, menos: se quedan los que, al azar, caben en «fill» de la
-//es pantalla (al menos tres). Los demás se van sin más.
-//en On entering halloween, fewer: the ones that, at random, fit in «fill» of the screen stay
-//en (at least three). The rest just go.
+//es Al entrar en halloween, menos: se eligen al azar y se queda cada uno que quepa en «fill»
+//es de la pantalla; el que no cabe se salta y se sigue probando con el siguiente. Siempre al
+//es menos «few» (si esos no caben, encogen poco a poco hasta caber). Los demás se van sin más.
+//en On entering halloween, fewer: they're picked at random and each one that fits in «fill» of
+//en the screen stays; one that doesn't fit is skipped and the next is tried. Always at least
+//en «few» (if those don't fit, they slowly shrink until they do). The rest just go.
 function ghostFew() {
   const room = W * H * HALLOWEEN.fill;
   let area = 0;
-  cells = cells
-    .map((c) => [Math.random(), c])
-    .sort((a, b) => a[0] - b[0])
-    .map(([, c]) => c)
-    .filter((c, n) => {
-      area += Math.PI * c.r * c.r;
-      return n < 3 || area <= room;
-    });
+  const keep = [];
+  const shuffled = cells.map((c) => [Math.random(), c]).sort((a, b) => a[0] - b[0]);
+  for (const [, c] of shuffled) {
+    const size = Math.PI * c.r * c.r;
+    if (keep.length >= HALLOWEEN.few && area + size > room) continue;
+    keep.push(c);
+    area += size;
+  }
+  cells = keep;
+  if (area > room) {
+    const k = Math.sqrt(room / area);
+    for (const c of cells) c.target = c.rest = c.r * k;
+  }
   if (grabbed && !cells.includes(grabbed)) grabbed = null;
   if (hovered && !cells.includes(hovered)) hovered = null;
 }
