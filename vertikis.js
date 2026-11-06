@@ -355,7 +355,6 @@ function draw() {
   if (riso) risoPaper();
   if (xmas) xmasSnow();
   if (evil) evilPaper();
-  if (halloween) batsFly(performance.now());
 
   for (const c of cells) {
     if (wire) { wireBody(c); continue; }
@@ -472,6 +471,7 @@ function draw() {
     ctx.arc(d.x, d.y, Math.max(0.1, d.r * d.life), 0, Math.PI * 2);
     ctx.fill();
   }
+  if (halloween) batsFly(performance.now());
   if (wire) wireNotes();
   if (riso) risoGrain();
 }
@@ -665,7 +665,7 @@ function pop(c) {
   }
   if (grabbed === c) grabbed = null;
   if (hovered === c) hovered = null;
-  const n = 10 + Math.round(c.r / 8);
+  const n = halloween ? 0 : 10 + Math.round(c.r / 8);
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2;
     const v = 3 + Math.random() * 6;
@@ -680,6 +680,7 @@ function pop(c) {
       xmas: xmasOf(c).color,
     });
   }
+  if (halloween) batsBurst(c);
   popSound(c.r);
 }
 
@@ -903,7 +904,6 @@ window.vertikis = {
     // desaparecen); al salir, los que estaban desapareciendo se van del todo.
     if (yugop && !wasYugop) yugopStart();
     if (halloween && !wasHalloween) ghostFew();
-    if (halloween && !wasHalloween) batsStart();
     if (!yugop) cells = cells.filter((c) => !c.vanishing);
     document.documentElement.classList.toggle('is-pixel', !!pixel);
     document.documentElement.classList.toggle('is-wire', wire);
@@ -1835,7 +1835,7 @@ function xmasSnow() {
 // #halloween): fantasmitas negros, con
 // la cabeza redonda, una falda ondulada que se mueve y dos ojos blancos en píldora. Los
 // fantasmas vuelan: no tienen gravedad y van a la deriva, cada uno a su aire. En el móvil,
-// inclinarlo sí los empuja, pero poco. De vez en cuando pasa un murciélago por detrás.
+// inclinarlo sí los empuja, pero poco. Al explotar, se deshacen en murciélagos.
 // =========================================================================================
 
 let halloween = false;
@@ -1971,44 +1971,47 @@ function ghostEyes(c, rot, now) {
   ctx.restore();
 }
 
-// Murciélagos: cada pocos segundos cruza uno, por detrás de los fantasmas, batiendo las
-// alas. Entra y sale por fuera de la pantalla siguiendo una curva (de Bézier, con dos puntos
-// de control al azar dentro de la pantalla) que tiembla un poco, como su vuelo. A veces
-// van dos seguidos.
-const BAT = { every: [12000, 36000], time: [3500, 6500], pair: 0.25 };
-// Por dónde entran y por dónde salen: l, izquierda; r, derecha; t, arriba; bl y br, abajo.
-const BAT_ROUTES = [['l', 'r'], ['r', 'l'], ['br', 't'], ['bl', 't'], ['br', 'l'], ['bl', 'r'], ['l', 't'], ['r', 't']];
+// Murciélagos: cuando un fantasma explota no salta en gotas, se deshace en una bandada que
+// sale volando en todas direcciones (más hacia arriba que hacia abajo), cada uno por su
+// curva de Bézier hasta fuera de la pantalla, batiendo las alas. Cuanto más grande, más
+// murciélagos. Nacen pequeños y crecen al salir, y pasan por delante de los otros fantasmas:
+// por detrás, negro sobre negro, no se verían.
+const BAT = { time: [2600, 4400], count: [4, 9], curve: 0.25, up: 0.9 };
 let bats = [];
-let batNextAt = 0;
 
-function batsStart() {
-  bats = [];
-  batNextAt = performance.now() + 1500;
-}
-
-function batEdge(side, size) {
-  const out = size * 2;
-  const along = (from, to) => from + Math.random() * (to - from);
-  if (side === 'l') return [-out, along(0.1, 0.8) * H];
-  if (side === 'r') return [W + out, along(0.1, 0.8) * H];
-  if (side === 't') return [along(0.1, 0.9) * W, -out];
-  if (side === 'bl') return [along(0, 0.35) * W, H + out];
-  return [along(0.65, 1) * W, H + out];
-}
-
-function makeBat(now) {
-  const size = Math.max(14, Math.min(W, H) * 0.035) * (0.8 + Math.random() * 0.5);
-  const [from, to] = BAT_ROUTES[Math.floor(Math.random() * BAT_ROUTES.length)];
-  return {
-    size,
-    from: batEdge(from, size),
-    a: [Math.random() * W, Math.random() * H],
-    b: [Math.random() * W, Math.random() * H],
-    to: batEdge(to, size),
-    start: now,
-    time: BAT.time[0] + Math.random() * (BAT.time[1] - BAT.time[0]),
-    phase: Math.random() * Math.PI * 2,
-  };
+function batsBurst(c) {
+  const now = performance.now();
+  const short = Math.min(W, H);
+  const n = Math.max(BAT.count[0], Math.min(BAT.count[1], Math.round(c.r / (short * 0.04))));
+  const far = Math.hypot(W, H);
+  // Tiran hacia arriba según lo abajo que esté el fantasma: desde arriba del todo, nada, para
+  // que no se salgan de la pantalla nada más nacer.
+  const up = BAT.up * (c.cy / H - 0.25) * 2;
+  for (let i = 0; i < n; i++) {
+    const size = Math.max(14, short * 0.035) * (0.8 + Math.random() * 0.5);
+    // Repartidos en círculo, con algo de azar y torcidos hacia arriba (up).
+    const angle = (i / n) * Math.PI * 2 + Math.random() * 0.6;
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle) - up;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
+    const D = far + size * 2;
+    // Los puntos de control se desvían a un lado: de ahí sale la curva.
+    const off = () => (Math.random() - 0.5) * 2 * BAT.curve * D;
+    const side1 = off();
+    const side2 = off();
+    bats.push({
+      size,
+      from: [c.cx + ux * c.r * 0.3, c.cy + uy * c.r * 0.3],
+      a: [c.cx + ux * D * 0.25 - uy * side1, c.cy + uy * D * 0.25 + ux * side1],
+      b: [c.cx + ux * D * 0.6 - uy * side2, c.cy + uy * D * 0.6 + ux * side2],
+      to: [c.cx + ux * D, c.cy + uy * D],
+      start: now + i * 25,
+      time: BAT.time[0] + Math.random() * (BAT.time[1] - BAT.time[0]),
+      phase: Math.random() * Math.PI * 2,
+    });
+  }
 }
 
 const bezier = (p, a, b, q, t) => {
@@ -2016,8 +2019,8 @@ const bezier = (p, a, b, q, t) => {
   return u * u * u * p + 3 * u * u * t * a + 3 * u * t * t * b + t * t * t * q;
 };
 
-function batShape(b, x, y, now) {
-  const s = b.size;
+function batShape(b, x, y, now, grow) {
+  const s = b.size * grow;
   // El aleteo: lift levanta las puntas de las alas (y las baja al bajar).
   const lift = Math.sin(now * 0.028 + b.phase) * 0.7;
   ctx.save();
@@ -2054,18 +2057,13 @@ function batShape(b, x, y, now) {
 }
 
 function batsFly(now) {
-  if (now > batNextAt) {
-    bats.push(makeBat(now));
-    if (Math.random() < BAT.pair) bats.push(makeBat(now + 500));
-    batNextAt = now + BAT.every[0] + Math.random() * (BAT.every[1] - BAT.every[0]);
-  }
   bats = bats.filter((b) => now < b.start + b.time);
   for (const b of bats) {
     const t = (now - b.start) / b.time;
     if (t < 0) continue;
     const x = bezier(b.from[0], b.a[0], b.b[0], b.to[0], t);
     const y = bezier(b.from[1], b.a[1], b.b[1], b.to[1], t);
-    batShape(b, x + Math.sin(now * 0.009 + b.phase) * b.size * 0.35, y + Math.sin(now * 0.013 + b.phase) * b.size * 0.5, now);
+    batShape(b, x + Math.sin(now * 0.009 + b.phase) * b.size * 0.35, y + Math.sin(now * 0.013 + b.phase) * b.size * 0.5, now, Math.min(1, 0.3 + t * 5));
   }
 }
 
