@@ -181,6 +181,21 @@ canvas.is-dragging {
   background: #eee;
 }
 
+/* Lava (#lava): lámpara de lava; el fondo lo pinta el canvas. El pie va sobre la cera
+   clara del fondo. */
+.is-lava body {
+  background: #22082f;
+}
+
+.is-lava .credit {
+  color: #22082f;
+}
+
+.is-lava .credit__tag {
+  background: #22082f;
+  color: #ffd84a;
+}
+
 /* Evil (vertikis.style.evil()): fondo rojo (lo pinta el canvas), el pie en blanco y la
    etiqueta en negro. */
 .is-evil body {

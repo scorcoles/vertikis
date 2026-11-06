@@ -331,12 +331,12 @@ function step() {
   //en@17 On desktop, yugop's is 15 % lower than on phones.
   //es@17 En halloween vuelan: sin gravedad, salvo un poco al inclinar el móvil, y a la deriva.
   //en@17 In halloween they fly: no gravity, except a little when tilting the phone, and drifting.
-  const G = halloween ? (tiltListening ? GRAVITY * HALLOWEEN.tilt : 0) : yugop ? GRAVITY * YUGOP.gravity * (touchDevice ? 1 : 0.85) : GRAVITY; // @17
+  const G = lava ? (tiltListening ? GRAVITY * LAVA.tilt : 0) : halloween ? (tiltListening ? GRAVITY * HALLOWEEN.tilt : 0) : yugop ? GRAVITY * YUGOP.gravity * (touchDevice ? 1 : 0.85) : GRAVITY; // @17
   const t = performance.now() / 1000; // @17
   if (halloween) ghostSpace(); // @17
   for (const c of cells) {
-    const [wx, wy] = halloween ? ghostDrift(c, t) : [0, 0]; // @17
-    const ay = halloween ? ghostFall(c, G) : G * gravY; // @17
+    const [wx, wy] = lava ? lavaSway(c, t) : halloween ? ghostDrift(c, t) : [0, 0]; // @17
+    const ay = lava ? lavaLift(c) : halloween ? ghostFall(c, G) : G * gravY; // @17
     //es Paso 4 · Inercia con fricción, más la gravedad (integración de Verlet: la velocidad
     //es es la diferencia entre la posición actual y la anterior).
     //en Step 4 · Inertia with friction, plus gravity (Verlet integration: the velocity is
@@ -409,6 +409,7 @@ function step() {
   //en Step 8a · Point collisions: every point that gets inside another vertiki (treated as a
   //en circle) is pushed back out. That's how they flatten where they touch.
   for (let a = 0; a < cells.length; a++) {
+    if (lava) break; // @17
     const A = cells[a];
     for (let b = 0; b < cells.length; b++) {
       if (a === b) continue;
@@ -451,7 +452,7 @@ function step() {
       //es@17 lo mismo que antes): si no, un grande encima de uno pequeño lo deja chafado.
       //en@17 The allowed overlap is measured on the smaller of the two (for two equal ones, the
       //en@17 same as before): otherwise a big one on top of a small one squashes it flat.
-      const min = A.r + B.r - Math.min(A.r, B.r) * 0.24; // @17
+      const min = lava ? (A.r + B.r) * LAVA.overlap : A.r + B.r - Math.min(A.r, B.r) * 0.24; // @17
       if (d >= min) continue;
       if (d < 0.01) {
         //es Centros casi iguales: se separan en una dirección al azar.
@@ -538,9 +539,12 @@ function draw() {
   if (riso) risoPaper(); // @17
   if (xmas) xmasSnow(); // @17
   if (evil) evilPaper(); // @17
+  if (lava) lavaPaper(); // @17
+  if (lava) lavaWax(); // @17
   if (evil) evilTails(); // @17
 
   for (const c of cells) {
+    if (lava) continue; // @17
     if (wire) { wireBody(c); continue; } // @17
     if (halloween) { ghostBody(c, performance.now()); continue; } // @17
     if (riso) { risoBody(c); continue; } // @17
@@ -684,6 +688,7 @@ function draw() {
     if (yugop) ctx.fillStyle = '#000'; // @17
     if (riso) ctx.fillStyle = RISO_INKS[risoInk(d.color) % 2]; // @17
     if (evil) ctx.fillStyle = EVIL_INK; // @17
+    if (lava) ctx.fillStyle = LAVA_DROP; // @17
     if (xmas) ctx.fillStyle = d.xmas; // @17
     if (halloween) ctx.fillStyle = GHOST; // @17
     ctx.beginPath();
@@ -1227,6 +1232,7 @@ window.vertikis = {
     const wasPixel = !!pixel;
     const wasYugop = yugop;
     const wasHalloween = halloween;
+    const wasLava = lava;
     pixel = name === 'pixel' ? pixelSize() : 0;
     wire = name === 'wire';
     yugop = name === 'yugop';
@@ -1234,12 +1240,14 @@ window.vertikis = {
     evil = name === 'evil';
     xmas = name === 'xmas';
     halloween = name === 'halloween';
+    lava = name === 'lava';
     //es Al entrar en yugop se apunta cuántos hay (alrededor de ese número aparecen y
     //es desaparecen); al salir, los que estaban desapareciendo se van del todo.
     //en Entering yugop notes how many there are (they appear and vanish around that number);
     //en leaving, the ones that were vanishing go for good.
     if (yugop && !wasYugop) yugopStart();
-    if (halloween && !wasHalloween) ghostFew();
+    if (halloween && !wasHalloween) fewer(HALLOWEEN);
+    if (lava && !wasLava) fewer(LAVA);
     for (const c of cells) c.tail = null;
     if (!yugop) cells = cells.filter((c) => !c.vanishing);
     document.documentElement.classList.toggle('is-pixel', !!pixel);
@@ -1249,6 +1257,7 @@ window.vertikis = {
     document.documentElement.classList.toggle('is-evil', evil);
     document.documentElement.classList.toggle('is-xmas', xmas);
     document.documentElement.classList.toggle('is-halloween', halloween);
+    document.documentElement.classList.toggle('is-lava', lava);
     //es El modo píxel cambia la resolución del canvas: hay que rehacerlo al entrar y al salir.
     //en Pixel mode changes the canvas resolution: it has to be redone going in and out.
     if (wasPixel !== !!pixel) resize();
@@ -1265,7 +1274,7 @@ window.vertikis = {
     //en where there's no console.
     const hash = name === 'normal' ? '' : `#${name}`;
     if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
-    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, wire: '⌗ wire', yugop: '+ yugop', riso: '◐ riso', evil: '😈 evil', xmas: '🎄 xmas', halloween: '👻 halloween' }[name];
+    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, wire: '⌗ wire', yugop: '+ yugop', riso: '◐ riso', evil: '😈 evil', xmas: '🎄 xmas', halloween: '👻 halloween', lava: '🌋 lava' }[name];
   },
   //es vertikis.style.pixel(), vertikis.style.evil()…: una orden por visualización (se
   //es rellena abajo, con MODES y HIDDEN).
@@ -1280,7 +1289,7 @@ window.vertikis = {
 //en add one: its name here and whatever it draws in draw().
 //es «wire» va siempre el último.
 //en «wire» always goes last.
-const MODES = ['normal', 'pixel', 'yugop', 'riso', 'wire'];
+const MODES = ['normal', 'pixel', 'yugop', 'riso', 'wire', 'lava'];
 //es Las que no están en la lista: solo por consola (vertikis.style.evil(), …) o con su
 //es dirección (#evil, #xmas, #halloween). Ni el doble clic, ni «Prev» y «Next», ni las
 //es flechas pasan por ellas.
@@ -1289,7 +1298,7 @@ const MODES = ['normal', 'pixel', 'yugop', 'riso', 'wire'];
 //en arrow keys go through them.
 const HIDDEN = ['evil', 'xmas', 'halloween'];
 const currentMode = () =>
-  evil ? 'evil' : xmas ? 'xmas' : halloween ? 'halloween' : riso ? 'riso' : yugop ? 'yugop' : wire ? 'wire' : pixel ? 'pixel' : 'normal';
+  lava ? 'lava' : evil ? 'evil' : xmas ? 'xmas' : halloween ? 'halloween' : riso ? 'riso' : yugop ? 'yugop' : wire ? 'wire' : pixel ? 'pixel' : 'normal';
 for (const name of [...MODES, ...HIDDEN]) {
   window.vertikis.style[name] = () => window.vertikis.mode(currentMode() === name && name !== 'normal' ? 'normal' : name);
 }
@@ -1994,6 +2003,144 @@ function risoGrain() {
 }
 
 //es =========================================================================================
+//es Extra · Lava (#lava): una lámpara de lava. Se calientan abajo, suben despacio, se enfrían
+//es arriba y vuelven a bajar, y al tocarse se funden como cera. Lo que se dibuja no son los
+//es cuerpos sino un campo: cada vertiki suma calor alrededor y la cera aparece donde el total
+//es pasa de un nivel, así que dos cercanos se unen solos. Se calcula a baja resolución en
+//es JavaScript (filtros como blur + contraste no van en todos los navegadores) y se amplía.
+//es =========================================================================================
+//en =========================================================================================
+//en Extra · Lava (#lava): a lava lamp. They warm up at the bottom, rise slowly, cool at the top
+//en and sink again, and when they touch they melt together like wax. What gets drawn isn't the
+//en bodies but a field: each vertiki adds heat around it and wax appears where the total passes
+//en a level, so two nearby ones join by themselves. It's computed at low resolution in
+//en JavaScript (blur + contrast filters don't work in every browser) and scaled up.
+//en =========================================================================================
+
+let lava = false;
+//es tilt: la gravedad al inclinar el móvil. lift: lo que empuja, por alto de pantalla (con la
+//es fricción, unos 60 px/s en 700 px). heat: lo que se calienta o enfría en cada subpaso.
+//es overlap: lo que se pueden meter uno en otro. fill y few: como en halloween. cell: el lado
+//es de cada casilla del campo, en px. reach: hasta dónde llega cada uno, en radios. level: dónde
+//es empieza la cera. edge: lo suave del borde. pool: la altura de la cera del fondo. melt: en
+//es cuántos px pasa esa cera de nada a cera (cuanto más, más suave su borde).
+//en tilt: gravity when tilting the phone. lift: how hard they're pushed, per screen height (with
+//en friction, about 60 px/s on 700 px). heat: how much they warm or cool each substep. overlap:
+//en how far they can sink into each other. fill and few: as in halloween. cell: the side of each
+//en field cell, in px. reach: how far each one extends, in radii. level: where wax starts. edge:
+//en how soft the edge is. pool: the height of the wax at the bottom. melt: over how many px that
+//en wax goes from nothing to wax (the more, the softer its edge).
+const LAVA = { tilt: 0.05, lift: 0.000014, heat: 0.0006, sway: 0.002, overlap: 0.62, fill: 0.3, few: touchDevice ? 5 : 8, cell: touchDevice ? 3 : 4, reach: 1.7, level: 0.43, edge: 0.03, pool: 0.12, melt: 160 };
+const LAVA_PAPER = ['#22082f', '#7c1340'];
+const LAVA_DROP = '#ff8a2a';
+//es Los colores de la cera, de fría a caliente, ya repartidos en 256 tonos (ABGR, ver lavaWax).
+//en The wax colours, cold to hot, already spread over 256 shades (ABGR, see lavaWax).
+const LAVA_WAX = (() => {
+  const stops = [[0.0, 0xa8, 0x12, 0x3a], [0.4, 0xe8, 0x2c, 0x22], [0.7, 0xff, 0x7a, 0x1c], [1.0, 0xff, 0xd8, 0x4a]];
+  const out = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    const t = i / 255;
+    const k = Math.max(1, stops.findIndex((s) => s[0] >= t));
+    const a = stops[k - 1];
+    const b = stops[k];
+    const f = (t - a[0]) / (b[0] - a[0]);
+    const ch = (n) => Math.round(a[n] + (b[n] - a[n]) * f);
+    out[i] = (ch(3) << 16) | (ch(2) << 8) | ch(1);
+  }
+  return out;
+})();
+
+//es Lo que suben o bajan: abajo se calientan y arriba se enfrían, cada uno a su ritmo, y en medio
+//es conservan el calor: el caliente sigue subiendo y el frío sigue bajando.
+//en How much they rise or sink: they warm at the bottom and cool at the top, each at its own
+//en pace, and in the middle they keep their heat: hot ones keep rising and cold ones keep sinking.
+function lavaLift(c) {
+  if (c.heat === undefined) c.heat = Math.random();
+  const y = c.cy / floor;
+  const pace = 0.6 + ((c.base * 37) % 1) * 0.8;
+  c.heat = Math.max(0, Math.min(1, c.heat + (y > 0.7 ? 1 : y < 0.3 ? -1 : 0) * LAVA.heat * pace));
+  return -LAVA.lift * H * (c.heat * 2 - 1);
+}
+
+//es Un vaivén lento a los lados, distinto para cada uno.
+//en A slow sway sideways, different for each one.
+const lavaSway = (c, t) => [Math.sin(t * 0.3 + c.base * 7) * LAVA.sway, 0];
+
+function lavaPaper() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, LAVA_PAPER[0]);
+  g.addColorStop(1, LAVA_PAPER[1]);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+let lavaGrid = null;
+
+function lavaWax() {
+  const { cell, reach, level, edge, pool, melt } = LAVA;
+  const gw = Math.ceil(W / cell) + 1;
+  const gh = Math.ceil(H / cell) + 1;
+  if (!lavaGrid || lavaGrid.gw !== gw || lavaGrid.gh !== gh) {
+    const wax = document.createElement('canvas');
+    wax.width = gw;
+    wax.height = gh;
+    const gx = wax.getContext('2d');
+    const image = gx.createImageData(gw, gh);
+    lavaGrid = { gw, gh, wax, gx, image, field: new Float32Array(gw * gh), px: new Uint32Array(image.data.buffer) };
+  }
+  const { field, px, image, gx, wax } = lavaGrid;
+  field.fill(0);
+  //es Cada vertiki suma una campana alrededor, más estirada en vertical cuanto más rápido va.
+  //en Each vertiki adds a bell around it, stretched vertically the faster it goes.
+  for (const c of cells) {
+    const stretch = 1 + Math.min(0.3, Math.abs(c.y[0] - c.py[0]) * 1.5);
+    const rx = (c.r * reach) / cell / Math.sqrt(stretch);
+    const ry = (c.r * reach * stretch) / cell;
+    const cx = c.cx / cell;
+    const cy = c.cy / cell;
+    const x1 = Math.min(gw - 1, Math.ceil(cx + rx));
+    const y1 = Math.min(gh - 1, Math.ceil(cy + ry));
+    for (let y = Math.max(0, Math.floor(cy - ry)); y <= y1; y++) {
+      const dy = (y - cy) / ry;
+      for (let x = Math.max(0, Math.floor(cx - rx)); x <= x1; x++) {
+        const dx = (x - cx) / rx;
+        const q = 1 - dx * dx - dy * dy;
+        if (q > 0) field[y * gw + x] += q * q;
+      }
+    }
+  }
+  //es El charco del fondo, con dos ondas lentas: los vertikis salen de él y vuelven a él.
+  //en The pool at the bottom, with two slow waves: the vertikis come out of it and go back in.
+  const t = performance.now() / 1000;
+  for (let x = 0; x < gw; x++) {
+    const sx = x * cell;
+    const top = floor - H * pool * (1 + 0.35 * Math.sin(sx * 0.008 + t * 0.4) + 0.2 * Math.sin(sx * 0.017 - t * 0.3));
+    for (let y = Math.max(0, Math.floor((top - melt * level) / cell)); y < gh; y++) {
+      field[y * gw + x] += Math.max(0, level + (y * cell - top) / melt);
+    }
+  }
+  //es Del campo a los colores: más caliente abajo y por dentro, y borde suave.
+  //en From field to colours: hotter at the bottom and inside, with a soft edge.
+  for (let i = 0, y = 0; y < gh; y++) {
+    const down = (y * cell) / H;
+    for (let x = 0; x < gw; x++, i++) {
+      const f = field[i];
+      const a = (f - level + edge) / (edge * 2);
+      if (a <= 0) {
+        px[i] = 0;
+        continue;
+      }
+      const tone = Math.floor(255 * (down * 0.7 + Math.max(0, Math.min(1, (f - level) * 1.4)) * 0.3));
+      px[i] = ((Math.min(1, a) * 255) << 24) | LAVA_WAX[Math.min(255, tone)];
+    }
+  }
+  gx.putImageData(image, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(wax, 0, 0, gw * cell, gh * cell);
+}
+
+//es =========================================================================================
 //es Extra · Evil (por consola, vertikis.style.evil(), o #evil): siluetas negras con cuernos y
 //es rabo sobre rojo plano, como un cartel. Los ojos en cruz y la sonrisa cosida van recortados: se
 //es ve el rojo del fondo a través de ellos.
@@ -2494,20 +2641,20 @@ const HALLOWEEN = { tilt: touchDevice ? 0.1 : 0.3, drift: 0.008, skirt: 0.22, wa
 const GHOST = '#111111';
 const GHOST_EYE = '#ffffff';
 
-//es Al entrar en halloween, menos: se eligen al azar y se queda cada uno que quepa en «fill»
+//es Al entrar en halloween o en lava, menos: se eligen al azar y se queda cada uno que quepa en «fill»
 //es de la pantalla; el que no cabe se salta y se sigue probando con el siguiente. Siempre al
 //es menos «few» (si esos no caben, encogen poco a poco hasta caber). Los demás se van sin más.
-//en On entering halloween, fewer: they're picked at random and each one that fits in «fill» of
+//en On entering halloween or lava, fewer: they're picked at random and each one that fits in «fill» of
 //en the screen stays; one that doesn't fit is skipped and the next is tried. Always at least
 //en «few» (if those don't fit, they slowly shrink until they do). The rest just go.
-function ghostFew() {
-  const room = W * H * HALLOWEEN.fill;
+function fewer({ fill, few }) {
+  const room = W * H * fill;
   let area = 0;
   const keep = [];
   const shuffled = cells.map((c) => [Math.random(), c]).sort((a, b) => a[0] - b[0]);
   for (const [, c] of shuffled) {
     const size = Math.PI * c.r * c.r;
-    if (keep.length >= HALLOWEEN.few && area + size > room) continue;
+    if (keep.length >= few && area + size > room) continue;
     keep.push(c);
     area += size;
   }
@@ -2944,7 +3091,7 @@ function tumbleweed(now) {
   //en the same colour) so it doesn't look like a cut-out circle.
   ctx.save();
   ctx.translate(w.x, w.y);
-  const ink = wire ? WIRE_LINE : riso ? RISO_INKS[1] : pixel ? `rgb(${WEED_PX})` : INK;
+  const ink = lava ? LAVA_DROP : wire ? WIRE_LINE : riso ? RISO_INKS[1] : pixel ? `rgb(${WEED_PX})` : INK;
   ctx.fillStyle = ink;
   ctx.strokeStyle = ink;
   ctx.lineCap = 'round';
