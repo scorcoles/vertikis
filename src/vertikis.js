@@ -32,8 +32,8 @@ function resize() {
   //en On retina screens there are 2 real pixels per CSS pixel: we draw at double size so it
   //en looks sharp (×2 at most, so we don't overdo it).
   const dpr = Math.min(window.devicePixelRatio || 1, 2); // @1-16
-  //es@17 En modo píxel (vertikis.pixelate()), al revés: un píxel real por cada «píxel gordo».
-  //en@17 In pixel mode (vertikis.pixelate()), the other way round: one real pixel per «fat pixel».
+  //es@17 En modo píxel (vertikis.style.pixel()), al revés: un píxel real por cada «píxel gordo».
+  //en@17 In pixel mode (vertikis.style.pixel()), the other way round: one real pixel per «fat pixel».
   if (pixel) pixel = pixelSize(); // @17
   const dpr = pixel ? 1 / pixel : Math.min(window.devicePixelRatio || 1, 2); // @17
   const first = W === 0; // @3
@@ -528,6 +528,7 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
   if (wire) wirePaper(); // @17
   if (riso) risoPaper(); // @17
+  if (xmas) xmasSnow(); // @17
 
   for (const c of cells) {
     if (wire) { wireBody(c); continue; } // @17
@@ -548,6 +549,8 @@ function draw() {
     g.addColorStop(1, pixel ? c.shadePx : c.shade); // @17
     ctx.fillStyle = g;
     if (yugop) ctx.fillStyle = '#000'; // @17
+    if (evil) ctx.fillStyle = evilFill(c); // @17
+    if (xmas) ctx.fillStyle = xmasFill(c); // @17
     //<<
     //es Paso 3 · Contorno suave: curvas que pasan por los puntos medios del anillo.
     //en Step 3 · Smooth outline: curves through the midpoints of the ring.
@@ -560,6 +563,7 @@ function draw() {
       ctx.quadraticCurveTo(c.x[i], c.y[i], (c.x[i] + c.x[j]) / 2, (c.y[i] + c.y[j]) / 2);
     }
     ctx.fill();
+    if (xmas) xmasHat(c); // @17
     //>> 3-3
     //es Para verlo: los 28 puntos del anillo.
     //en To see it: the 28 points of the ring.
@@ -593,6 +597,7 @@ function draw() {
     const tilt = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35; // @17
     if (pixel) { pixelFace(c, c.cx, c.cy, tilt, s, squint, surprised, '#000', now); continue; } // @17
     if (yugop) { yugopCrosses(c); continue; } // @17
+    if (evil) { evilFace(c, tilt, now); continue; } // @17
     ctx.save();
     ctx.translate(c.cx, c.cy);
     //es La cara se inclina con lo que gira el cuerpo, pero amortiguado (×0,35): reacciona al
@@ -665,6 +670,8 @@ function draw() {
     if (wire) ctx.fillStyle = WIRE_LINE; // @17
     if (yugop) ctx.fillStyle = '#000'; // @17
     if (riso) ctx.fillStyle = RISO_INKS[risoInk(d.color) % 2]; // @17
+    if (evil) ctx.fillStyle = EVIL_BODY[1]; // @17
+    if (xmas) ctx.fillStyle = d.xmas; // @17
     ctx.beginPath();
     ctx.arc(d.x, d.y, Math.max(0.1, d.r * d.life), 0, Math.PI * 2);
     ctx.fill();
@@ -920,6 +927,7 @@ function pop(c) {
       r: 2 + Math.random() * (c.r / 14),
       life: 1,
       color: c.color,
+      xmas: xmasOf(c).color, // @17
     });
   }
   popSound(c.r); // @15
@@ -1172,10 +1180,12 @@ function updateGravity() {
 //en rolls across the screen from left to right, with little hops.
 //en =========================================================================================
 
-//es Por consola: vertikis.masacre() los hace explotar todos de golpe. «vertikis» puede
-//es tener más órdenes en el futuro.
-//en From the console: vertikis.masacre() bursts them all at once. «vertikis» can have more
-//en commands in the future.
+//es Por consola: vertikis.masacre() los hace explotar todos de golpe, y vertikis.style.xxx()
+//es pone una visualización: normal, pixel, yugop, riso, wire… y dos que solo salen así,
+//es evil y xmas. Otra vez la misma, vuelve a normal.
+//en From the console: vertikis.masacre() bursts them all at once, and vertikis.style.xxx()
+//en switches visualisation: normal, pixel, yugop, riso, wire… and two that only come out this
+//en way, evil and xmas. The same one again goes back to normal.
 let quietPops = false;
 window.vertikis = {
   masacre() {
@@ -1189,29 +1199,21 @@ window.vertikis = {
     if (n) [0, 70, 150].slice(0, n).forEach((ms) => setTimeout(() => popSound(big), ms));
     return `💥 ${n} vertiki${n === 1 ? '' : 's'}`;
   },
-  //es vertikis.pixelate(): versión píxel (otra vez, o pixelate(false), para volver).
-  //en vertikis.pixelate(): pixel version (again, or pixelate(false), to go back).
-  pixelate(on = !pixel) {
-    return this.mode(on ? 'pixel' : 'normal');
-  },
-  //es vertikis.wire(): en alambre (otra vez, o wire(false), para volver).
-  //en vertikis.wire(): in wireframe (again, or wire(false), to go back).
-  wire(on = !wire) {
-    return this.mode(on ? 'wire' : 'normal');
-  },
-  //es vertikis.mode('pixel'): cambia de visualización por su nombre (ver MODES). Sin
-  //es nombre, dice cuál está puesta.
-  //en vertikis.mode('pixel'): switches visualisation by name (see MODES). With no name, it
-  //en says which one is on.
+  //es vertikis.mode('pixel'): cambia de visualización por su nombre (ver MODES y HIDDEN).
+  //es Sin nombre, dice cuál está puesta.
+  //en vertikis.mode('pixel'): switches visualisation by name (see MODES and HIDDEN). With no
+  //en name, it says which one is on.
   mode(name) {
     if (name === undefined) return currentMode();
-    if (!MODES.includes(name)) return `? ${MODES.join(' · ')}`;
+    if (!MODES.includes(name) && !HIDDEN.includes(name)) return `? ${[...MODES, ...HIDDEN].join(' · ')}`;
     const wasPixel = !!pixel;
     const wasYugop = yugop;
     pixel = name === 'pixel' ? pixelSize() : 0;
     wire = name === 'wire';
     yugop = name === 'yugop';
     riso = name === 'riso';
+    evil = name === 'evil';
+    xmas = name === 'xmas';
     //es Al entrar en yugop se apunta cuántos hay (alrededor de ese número aparecen y
     //es desaparecen); al salir, los que estaban desapareciendo se van del todo.
     //en Entering yugop notes how many there are (they appear and vanish around that number);
@@ -1222,6 +1224,8 @@ window.vertikis = {
     document.documentElement.classList.toggle('is-wire', wire);
     document.documentElement.classList.toggle('is-yugop', yugop);
     document.documentElement.classList.toggle('is-riso', riso);
+    document.documentElement.classList.toggle('is-evil', evil);
+    document.documentElement.classList.toggle('is-xmas', xmas);
     //es El modo píxel cambia la resolución del canvas: hay que rehacerlo al entrar y al salir.
     //en Pixel mode changes the canvas resolution: it has to be redone going in and out.
     if (wasPixel !== !!pixel) resize();
@@ -1232,10 +1236,17 @@ window.vertikis = {
     //es Si la página tiene dónde ([data-mode-name]), el nombre de la que está puesta.
     //en If the page has a place for it ([data-mode-name]), the name of the one that's on.
     for (const el of document.querySelectorAll('[data-mode-name]')) el.textContent = name;
-    const hash = name === 'normal' ? '' : `#${name}`;
+    //es Las ocultas (evil, xmas) no van en la dirección: solo salen por consola.
+    //en The hidden ones (evil, xmas) don't go in the address: they only come out by console.
+    const hash = name === 'normal' || HIDDEN.includes(name) ? '' : `#${name}`;
     if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
-    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, wire: '⌗ wire', yugop: '+ yugop', riso: '◐ riso' }[name];
+    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, wire: '⌗ wire', yugop: '+ yugop', riso: '◐ riso', evil: '😈 evil', xmas: '🎄 xmas' }[name];
   },
+  //es vertikis.style.pixel(), vertikis.style.evil()…: una orden por visualización (se
+  //es rellena abajo, con MODES y HIDDEN).
+  //en vertikis.style.pixel(), vertikis.style.evil()…: one command per visualisation (filled
+  //en in below, from MODES and HIDDEN).
+  style: {},
 };
 
 //es Las visualizaciones, en el orden en que pasa por ellas el doble clic en «vertikis».
@@ -1245,8 +1256,16 @@ window.vertikis = {
 //es «wire» va siempre el último.
 //en «wire» always goes last.
 const MODES = ['normal', 'pixel', 'yugop', 'riso', 'wire'];
+//es Las que no están en la lista: solo por consola (vertikis.style.evil(), …xmas()). Ni el
+//es doble clic, ni «Prev» y «Next», ni las flechas pasan por ellas.
+//en The ones not on the list: console only (vertikis.style.evil(), …xmas()). Neither the
+//en double-click, nor «Prev» and «Next», nor the arrow keys go through them.
+const HIDDEN = ['evil', 'xmas'];
 const currentMode = () =>
-  riso ? 'riso' : yugop ? 'yugop' : wire ? 'wire' : pixel ? 'pixel' : 'normal';
+  evil ? 'evil' : xmas ? 'xmas' : riso ? 'riso' : yugop ? 'yugop' : wire ? 'wire' : pixel ? 'pixel' : 'normal';
+for (const name of [...MODES, ...HIDDEN]) {
+  window.vertikis.style[name] = () => window.vertikis.mode(currentMode() === name && name !== 'normal' ? 'normal' : name);
+}
 
 //es Al abrir una dirección con #pixel, #yugop, #riso o #wire (o al cambiarla a mano), se pone esa
 //es visualización. Va en una microtarea: cuando el escenario ya está montado.
@@ -1265,7 +1284,8 @@ queueMicrotask(modeFromHash);
 //en «Prev» and «Next» in the footer: the previous and the next visualisation (wrapping round).
 const stepMode = (by) => {
   const n = MODES.length;
-  window.vertikis.mode(MODES[(MODES.indexOf(currentMode()) + by + n) % n]);
+  const at = Math.max(0, MODES.indexOf(currentMode()));
+  window.vertikis.mode(MODES[(at + by + n) % n]);
 };
 //es Y con el teclado: flecha izquierda, la anterior; flecha derecha, la siguiente.
 //en And with the keyboard: left arrow, the previous one; right arrow, the next.
@@ -1484,7 +1504,7 @@ if (creditTag) {
       ac();
       askTilt();
     }
-    window.vertikis.mode(MODES[(MODES.indexOf(currentMode()) + 1) % MODES.length]);
+    window.vertikis.mode(MODES[(Math.max(0, MODES.indexOf(currentMode())) + 1) % MODES.length]);
   });
 }
 
@@ -1942,6 +1962,178 @@ function risoGrain() {
   }
   ctx.fillStyle = risoPattern;
   ctx.fillRect(0, 0, W, H);
+}
+
+//es =========================================================================================
+//es Extra · Evil (solo por consola: vertikis.style.evil()): los mismos vertikis, pero negros,
+//es con los ojos en cruz y una sonrisa en V, maligna, en rojo.
+//es =========================================================================================
+//en =========================================================================================
+//en Extra · Evil (console only: vertikis.style.evil()): the same vertikis, but black, with
+//en crossed-out eyes and an evil V-shaped grin, in red.
+//en =========================================================================================
+
+let evil = false;
+//es Negro con un poco de volumen: luz, cuerpo y sombra del degradado.
+//en Black with a little volume: light, body and shadow of the gradient.
+const EVIL_BODY = ['#3a3a3a', '#1a1a1a', '#050505'];
+const EVIL_INK = '#e3342b';
+
+function evilFill(c) {
+  const g = ctx.createRadialGradient(c.cx - c.r * 0.35, c.cy - c.r * 0.4, c.r * 0.05, c.cx, c.cy, c.r * 1.25);
+  g.addColorStop(0, EVIL_BODY[0]);
+  g.addColorStop(0.55, EVIL_BODY[1]);
+  g.addColorStop(1, EVIL_BODY[2]);
+  return g;
+}
+
+function evilFace(c, rot, now) {
+  const s = c.r;
+  ctx.save();
+  ctx.translate(c.cx, c.cy);
+  ctx.rotate(rot);
+  ctx.strokeStyle = EVIL_INK;
+  ctx.lineWidth = Math.max(1, s * 0.035);
+  //es Ojos: dos cruces que miran al puntero. Al parpadear, la cruz se aplasta; con «> <»
+  //es o con el susto, se hacen un poco más grandes.
+  //en Eyes: two crosses that follow the pointer. Blinking squashes the cross; squeezed or
+  //en startled, they grow a little.
+  const t = (now - c.blinkAt) / 130;
+  const open = t >= 0 && t <= 1 ? Math.abs(1 - 2 * t) : 1;
+  const big = now < c.squintUntil || now < c.surprisedUntil ? 1.3 : 1;
+  const d = Math.max(1.5, s * 0.06) * big;
+  for (const side of [-1, 1]) {
+    const ex = side * s * 0.22 + c.lookX * s;
+    const ey = -s * 0.12 + c.lookY * s;
+    const dy = Math.max(0.4, d * open);
+    ctx.beginPath();
+    ctx.moveTo(ex - d, ey - dy);
+    ctx.lineTo(ex + d, ey + dy);
+    ctx.moveTo(ex + d, ey - dy);
+    ctx.lineTo(ex - d, ey + dy);
+    ctx.stroke();
+  }
+  //es Boca: una V con las comisuras subidas. Con el ratón encima, más honda.
+  //en Mouth: a V with the corners turned up. When you hover, deeper.
+  const w = s * 0.2;
+  const top = s * 0.05;
+  const h = s * (0.1 + 0.06 * c.smile);
+  ctx.beginPath();
+  ctx.moveTo(-w, top - s * 0.03);
+  ctx.lineTo(0, top + h);
+  ctx.lineTo(w, top - s * 0.03);
+  ctx.stroke();
+  ctx.restore();
+}
+
+//es =========================================================================================
+//es Extra · Xmas (solo por consola: vertikis.style.xmas()): colores de Navidad, un gorro rojo
+//es con borde y pompón blancos y nieve que cae por detrás.
+//es =========================================================================================
+//en =========================================================================================
+//en Extra · Xmas (console only: vertikis.style.xmas()): Christmas colours, a red hat with a
+//en white brim and bobble, and snow falling behind.
+//en =========================================================================================
+
+let xmas = false;
+const XMAS_PALETTE = ['#d7383b', '#e8615a', '#2f8f5b', '#1f6b45', '#4caf72', '#e9b949'];
+const HAT_RED = '#c92f33';
+const HAT_WHITE = '#fbfbfb';
+const HAT_EDGE = '#d9d9d9';
+const SNOW = '#c7d5e0';
+let snow = [];
+
+//es Cada vertiki se queda siempre con el mismo color de Navidad (se elige la primera vez).
+//en Each vertiki always keeps the same Christmas colour (picked the first time).
+function xmasOf(c) {
+  if (!c.xm) {
+    const color = XMAS_PALETTE[Math.floor(Math.random() * XMAS_PALETTE.length)];
+    c.xm = { color, light: tint(color, 0.16), shade: tint(color, -0.06) };
+  }
+  return c.xm;
+}
+
+function xmasFill(c) {
+  const m = xmasOf(c);
+  const g = ctx.createRadialGradient(c.cx - c.r * 0.35, c.cy - c.r * 0.4, c.r * 0.05, c.cx, c.cy, c.r * 1.25);
+  g.addColorStop(0, m.light);
+  g.addColorStop(0.55, m.color);
+  g.addColorStop(1, m.shade);
+  return g;
+}
+
+//es El gorro, girado como la cara. Se dibuja justo después de su cuerpo (los que vienen
+//es detrás lo tapan, y las caras van encima de todo). Se apoya en lo más alto del cuerpo tal
+//es como está ahora, así que baja cuando se aplasta.
+//en The hat, rotated like the face. It's drawn right after its body (the ones after it cover
+//en it, and the faces go on top of everything). It sits on the highest point of the body as
+//en it is right now, so it drops when the body squashes.
+function xmasHat(c) {
+  const s = c.r;
+  const rot = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
+  const cos = Math.cos(rot);
+  const sin = Math.sin(rot);
+  let top = 0;
+  for (let i = 0; i < POINTS; i++) {
+    const ly = -(c.x[i] - c.cx) * sin + (c.y[i] - c.cy) * cos;
+    if (ly < top) top = ly;
+  }
+  //es Hacia dónde cae la punta: siempre el mismo lado para cada vertiki.
+  //en Which way the tip flops: always the same side for each vertiki.
+  const lean = Math.sin(c.base * 7);
+  const y = top + s * 0.18;
+  const bw = s * 0.44;
+  const tipX = lean * s * 0.4;
+  const tipY = y - s * 0.58;
+  ctx.save();
+  ctx.translate(c.cx, c.cy);
+  ctx.rotate(rot);
+  ctx.fillStyle = HAT_RED;
+  ctx.beginPath();
+  ctx.moveTo(-bw * 0.9, y);
+  ctx.quadraticCurveTo(-bw * 0.6 + tipX * 0.3, y - s * 0.55, tipX, tipY);
+  ctx.quadraticCurveTo(bw * 0.5 + tipX * 0.3, y - s * 0.4, bw * 0.9, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = HAT_WHITE;
+  ctx.strokeStyle = HAT_EDGE;
+  ctx.lineWidth = Math.max(0.5, s * 0.015);
+  const bh = s * 0.15;
+  ctx.beginPath();
+  ctx.roundRect(-bw, y - bh / 2, bw * 2, bh, bh / 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(tipX, tipY, s * 0.085, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+//es Copos que caen despacio, balanceándose, por detrás de los vertikis. Al salir por abajo
+//es vuelven a entrar por arriba.
+//en Flakes falling slowly, swaying, behind the vertikis. When they leave at the bottom they
+//en come back in at the top.
+function xmasSnow() {
+  const want = Math.min(160, Math.round((W * H) / 11000));
+  while (snow.length < want) {
+    snow.push({ x: Math.random() * W, y: Math.random() * H, r: 1 + Math.random() * 2.2, v: 0.4 + Math.random() * 0.8, p: Math.random() * 6.3 });
+  }
+  if (snow.length > want) snow.length = want;
+  const t = performance.now() / 1000;
+  ctx.fillStyle = SNOW;
+  ctx.beginPath();
+  for (const f of snow) {
+    f.y += f.v;
+    f.x += Math.sin(t + f.p) * 0.3;
+    if (f.y > H + f.r) {
+      f.y = -f.r;
+      f.x = Math.random() * W;
+    }
+    ctx.moveTo(f.x + f.r, f.y);
+    ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+  }
+  ctx.fill();
 }
 
 let emptySince = null;
