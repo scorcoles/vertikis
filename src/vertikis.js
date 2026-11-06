@@ -329,8 +329,12 @@ function step() {
   //en@17 In yugop mode they float: less gravity and more stiffness (see YUGOP).
   //es@17 En escritorio, la de yugop un 15 % más baja que en el móvil.
   //en@17 On desktop, yugop's is 15 % lower than on phones.
-  const G = yugop ? GRAVITY * YUGOP.gravity * (touchDevice ? 1 : 0.85) : GRAVITY; // @17
+  //es@17 En halloween vuelan: sin gravedad, salvo un poco al inclinar el móvil, y a la deriva.
+  //en@17 In halloween they fly: no gravity, except a little when tilting the phone, and drifting.
+  const G = halloween ? (tiltListening ? GRAVITY * HALLOWEEN.tilt : 0) : yugop ? GRAVITY * YUGOP.gravity * (touchDevice ? 1 : 0.85) : GRAVITY; // @17
+  const t = performance.now() / 1000; // @17
   for (const c of cells) {
+    const [wx, wy] = halloween ? ghostDrift(c, t) : [0, 0]; // @17
     //es Paso 4 · Inercia con fricción, más la gravedad (integración de Verlet: la velocidad
     //es es la diferencia entre la posición actual y la anterior).
     //en Step 4 · Inertia with friction, plus gravity (Verlet integration: the velocity is
@@ -348,8 +352,8 @@ function step() {
       c.y[i] += vy + GRAVITY; // @4-15
       c.x[i] += vx + GRAVITY * gravX; // @16-16
       c.y[i] += vy + GRAVITY * gravY; // @16-16
-      c.x[i] += vx + G * gravX; // @17
-      c.y[i] += vy + G * gravY; // @17
+      c.x[i] += vx + G * gravX + wx; // @17
+      c.y[i] += vy + G * gravY + wy; // @17
     }
 
     //>> 11
@@ -533,6 +537,7 @@ function draw() {
 
   for (const c of cells) {
     if (wire) { wireBody(c); continue; } // @17
+    if (halloween) { ghostBody(c, performance.now()); continue; } // @17
     if (riso) { risoBody(c); continue; } // @17
     //es@3-9 Un gris neutro, hasta que lleguen los colores en el paso 10.
     //en@3-9 A neutral grey, until colours arrive in step 10.
@@ -601,6 +606,7 @@ function draw() {
     if (pixel) { pixelFace(c, c.cx, c.cy, tilt, s, squint, surprised, '#000', now); continue; } // @17
     if (yugop) { yugopCrosses(c); continue; } // @17
     if (evil) { evilFace(c, tilt, now); continue; } // @17
+    if (halloween) { ghostEyes(c, tilt, now); continue; } // @17
     ctx.save();
     ctx.translate(c.cx, c.cy);
     //es La cara se inclina con lo que gira el cuerpo, pero amortiguado (×0,35): reacciona al
@@ -675,6 +681,7 @@ function draw() {
     if (riso) ctx.fillStyle = RISO_INKS[risoInk(d.color) % 2]; // @17
     if (evil) ctx.fillStyle = EVIL_RIM; // @17
     if (xmas) ctx.fillStyle = d.xmas; // @17
+    if (halloween) ctx.fillStyle = GHOST; // @17
     ctx.beginPath();
     ctx.arc(d.x, d.y, Math.max(0.1, d.r * d.life), 0, Math.PI * 2);
     ctx.fill();
@@ -1184,11 +1191,11 @@ function updateGravity() {
 //en =========================================================================================
 
 //es Por consola: vertikis.masacre() los hace explotar todos de golpe, y vertikis.style.xxx()
-//es pone una visualización: normal, pixel, yugop, riso, wire… y dos que solo salen así,
-//es evil y xmas. Otra vez la misma, vuelve a normal.
+//es pone una visualización: normal, pixel, yugop, riso, wire… y las que solo salen así:
+//es evil, xmas y halloween. Otra vez la misma, vuelve a normal.
 //en From the console: vertikis.masacre() bursts them all at once, and vertikis.style.xxx()
-//en switches visualisation: normal, pixel, yugop, riso, wire… and two that only come out this
-//en way, evil and xmas. The same one again goes back to normal.
+//en switches visualisation: normal, pixel, yugop, riso, wire… and the ones that only come out
+//en this way: evil, xmas and halloween. The same one again goes back to normal.
 let quietPops = false;
 window.vertikis = {
   masacre() {
@@ -1217,6 +1224,7 @@ window.vertikis = {
     riso = name === 'riso';
     evil = name === 'evil';
     xmas = name === 'xmas';
+    halloween = name === 'halloween';
     //es Al entrar en yugop se apunta cuántos hay (alrededor de ese número aparecen y
     //es desaparecen); al salir, los que estaban desapareciendo se van del todo.
     //en Entering yugop notes how many there are (they appear and vanish around that number);
@@ -1229,6 +1237,7 @@ window.vertikis = {
     document.documentElement.classList.toggle('is-riso', riso);
     document.documentElement.classList.toggle('is-evil', evil);
     document.documentElement.classList.toggle('is-xmas', xmas);
+    document.documentElement.classList.toggle('is-halloween', halloween);
     //es El modo píxel cambia la resolución del canvas: hay que rehacerlo al entrar y al salir.
     //en Pixel mode changes the canvas resolution: it has to be redone going in and out.
     if (wasPixel !== !!pixel) resize();
@@ -1239,11 +1248,11 @@ window.vertikis = {
     //es Si la página tiene dónde ([data-mode-name]), el nombre de la que está puesta.
     //en If the page has a place for it ([data-mode-name]), the name of the one that's on.
     for (const el of document.querySelectorAll('[data-mode-name]')) el.textContent = name;
-    //es Las ocultas (evil, xmas) no van en la dirección: solo salen por consola.
-    //en The hidden ones (evil, xmas) don't go in the address: they only come out by console.
+    //es Las ocultas (evil, xmas, halloween) no van en la dirección: solo salen por consola.
+    //en The hidden ones (evil, xmas, halloween) don't go in the address: they only come out by console.
     const hash = name === 'normal' || HIDDEN.includes(name) ? '' : `#${name}`;
     if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
-    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, wire: '⌗ wire', yugop: '+ yugop', riso: '◐ riso', evil: '😈 evil', xmas: '🎄 xmas' }[name];
+    return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, wire: '⌗ wire', yugop: '+ yugop', riso: '◐ riso', evil: '😈 evil', xmas: '🎄 xmas', halloween: '👻 halloween' }[name];
   },
   //es vertikis.style.pixel(), vertikis.style.evil()…: una orden por visualización (se
   //es rellena abajo, con MODES y HIDDEN).
@@ -1263,9 +1272,9 @@ const MODES = ['normal', 'pixel', 'yugop', 'riso', 'wire'];
 //es doble clic, ni «Prev» y «Next», ni las flechas pasan por ellas.
 //en The ones not on the list: console only (vertikis.style.evil(), …xmas()). Neither the
 //en double-click, nor «Prev» and «Next», nor the arrow keys go through them.
-const HIDDEN = ['evil', 'xmas'];
+const HIDDEN = ['evil', 'xmas', 'halloween'];
 const currentMode = () =>
-  evil ? 'evil' : xmas ? 'xmas' : riso ? 'riso' : yugop ? 'yugop' : wire ? 'wire' : pixel ? 'pixel' : 'normal';
+  evil ? 'evil' : xmas ? 'xmas' : halloween ? 'halloween' : riso ? 'riso' : yugop ? 'yugop' : wire ? 'wire' : pixel ? 'pixel' : 'normal';
 for (const name of [...MODES, ...HIDDEN]) {
   window.vertikis.style[name] = () => window.vertikis.mode(currentMode() === name && name !== 'normal' ? 'normal' : name);
 }
@@ -2283,6 +2292,111 @@ function xmasSnow() {
     ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
   }
   ctx.fill();
+}
+
+//es =========================================================================================
+//es Extra · Halloween (solo por consola: vertikis.style.halloween()): fantasmitas negros, con
+//es la cabeza redonda, una falda ondulada que se mueve y dos ojos blancos en píldora. Los
+//es fantasmas vuelan: no tienen gravedad y van a la deriva, cada uno a su aire. En el móvil,
+//es inclinarlo sí los empuja, pero poco.
+//es =========================================================================================
+//en =========================================================================================
+//en Extra · Halloween (console only: vertikis.style.halloween()): little black ghosts, with a
+//en round head, a wavy skirt that moves and two white pill-shaped eyes. Ghosts fly: they have
+//en no gravity and drift about, each its own way. On a phone, tilting it does push them, but
+//en only a little.
+//en =========================================================================================
+
+let halloween = false;
+//es tilt: la gravedad al inclinar el móvil (fracción de la normal). drift: lo que empuja la
+//es deriva en cada subpaso (con la fricción, unos 50 px/s como mucho). skirt: lo que baja la
+//es falda y lo alta que es la onda, en fracción del radio.
+//en tilt: gravity when tilting the phone (fraction of the normal one). drift: how hard the
+//en drift pushes each substep (with friction, about 50 px/s at most). skirt: how far the
+//en skirt drops and how tall the wave is, as a fraction of the radius.
+const HALLOWEEN = { tilt: 0.3, drift: 0.008, skirt: 0.22, wave: 0.11, waves: 3 };
+const GHOST = '#111111';
+const GHOST_EYE = '#ffffff';
+
+//es La deriva: un empujón que cambia despacio de dirección, distinto para cada fantasma.
+//en The drift: a push that slowly changes direction, different for each ghost.
+const ghostDrift = (c, t) => [
+  Math.sin(t * 0.4 + c.base * 5) * HALLOWEEN.drift,
+  Math.cos(t * 0.31 + c.base * 8.5) * HALLOWEEN.drift,
+];
+
+//es El cuerpo: el mismo anillo, pero visto girado como la cara, con la mitad de abajo
+//es estirada hacia abajo y ondulada (la onda corre despacio: la falda se mueve). Para que la
+//es onda salga suave, entre cada dos puntos del anillo se mete el punto medio.
+//en The body: the same ring, but seen rotated like the face, with the bottom half stretched
+//en downwards and wavy (the wave travels slowly: the skirt moves). For a smooth wave, the
+//en midpoint is added between every two points of the ring.
+function ghostBody(c, now) {
+  const s = c.r;
+  const rot = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
+  const cos = Math.cos(rot);
+  const sin = Math.sin(rot);
+  const t = now / 1000;
+  const n = POINTS * 2;
+  const xs = new Float32Array(n);
+  const ys = new Float32Array(n);
+  for (let i = 0; i < POINTS; i++) {
+    const j = (i + 1) % POINTS;
+    for (const [k, px, py] of [
+      [i * 2, c.x[i], c.y[i]],
+      [i * 2 + 1, (c.x[i] + c.x[j]) / 2, (c.y[i] + c.y[j]) / 2],
+    ]) {
+      let lx = (px - c.cx) * cos + (py - c.cy) * sin;
+      let ly = -(px - c.cx) * sin + (py - c.cy) * cos;
+      if (ly > 0) {
+        const b = Math.min(1, ly / s);
+        ly += b * s * HALLOWEEN.skirt;
+        ly += b * b * s * HALLOWEEN.wave * Math.sin((lx / s) * Math.PI * HALLOWEEN.waves + t * 2.5 + c.base * 3);
+      }
+      xs[k] = lx;
+      ys[k] = ly;
+    }
+  }
+  ctx.save();
+  ctx.translate(c.cx, c.cy);
+  ctx.rotate(rot);
+  ctx.fillStyle = GHOST;
+  ctx.beginPath();
+  ctx.moveTo((xs[n - 1] + xs[0]) / 2, (ys[n - 1] + ys[0]) / 2);
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    ctx.quadraticCurveTo(xs[i], ys[i], (xs[i] + xs[j]) / 2, (ys[i] + ys[j]) / 2);
+  }
+  ctx.fill();
+  ctx.restore();
+}
+
+//es Los ojos: dos píldoras blancas de pie, juntas, que se van hacia donde mira (hacia el
+//es puntero, más que en los otros modos: como en el dibujo, mirando de lado). Sin boca. Al
+//es parpadear se aplastan; con el susto, se hacen más grandes.
+//en The eyes: two white upright pills, close together, that move towards where it looks
+//en (at the pointer, more than in the other modes: as in the drawing, looking sideways). No
+//en mouth. Blinking squashes them; when startled, they grow.
+function ghostEyes(c, rot, now) {
+  const s = c.r;
+  const t = (now - c.blinkAt) / 130;
+  const open = t >= 0 && t <= 1 ? Math.abs(1 - 2 * t) : 1;
+  const big = now < c.surprisedUntil ? 1.25 : 1;
+  const w = s * 0.13 * big;
+  const h = Math.max(w * 0.5, s * 0.27 * big * open);
+  const look = Math.max(-0.22, Math.min(0.22, c.lookX * 4));
+  ctx.save();
+  ctx.translate(c.cx, c.cy);
+  ctx.rotate(rot);
+  ctx.fillStyle = GHOST_EYE;
+  for (const side of [-1, 1]) {
+    const ex = (side * 0.15 + look) * s;
+    const ey = (-0.08 + c.lookY * 2) * s;
+    ctx.beginPath();
+    ctx.roundRect(ex - w / 2, ey - h / 2, w, h, w / 2);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 let emptySince = null;
