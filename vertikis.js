@@ -946,11 +946,11 @@ window.vertikis = {
 // Las visualizaciones, en el orden en que pasa por ellas el doble clic en «vertikis».
 // Para añadir una: su nombre aquí y lo que dibuje en draw().
 // «wire» va siempre el último.
-const MODES = ['normal', 'pixel', 'yugop', 'riso', 'wire', 'lava'];
+const MODES = ['normal', 'pixel', 'yugop', 'riso', 'wire'];
 // Las que no están en la lista: solo por consola (vertikis.style.evil(), …) o con su
-// dirección (#evil, #xmas, #halloween). Ni el doble clic, ni «Prev» y «Next», ni las
+// dirección (#evil, #xmas, #halloween, #lava). Ni el doble clic, ni «Prev» y «Next», ni las
 // flechas pasan por ellas.
-const HIDDEN = ['evil', 'xmas', 'halloween'];
+const HIDDEN = ['evil', 'xmas', 'halloween', 'lava'];
 const currentMode = () =>
   lava ? 'lava' : evil ? 'evil' : xmas ? 'xmas' : halloween ? 'halloween' : riso ? 'riso' : yugop ? 'yugop' : wire ? 'wire' : pixel ? 'pixel' : 'normal';
 for (const name of [...MODES, ...HIDDEN]) {

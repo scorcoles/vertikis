@@ -1289,14 +1289,14 @@ window.vertikis = {
 //en add one: its name here and whatever it draws in draw().
 //es «wire» va siempre el último.
 //en «wire» always goes last.
-const MODES = ['normal', 'pixel', 'yugop', 'riso', 'wire', 'lava'];
+const MODES = ['normal', 'pixel', 'yugop', 'riso', 'wire'];
 //es Las que no están en la lista: solo por consola (vertikis.style.evil(), …) o con su
-//es dirección (#evil, #xmas, #halloween). Ni el doble clic, ni «Prev» y «Next», ni las
+//es dirección (#evil, #xmas, #halloween, #lava). Ni el doble clic, ni «Prev» y «Next», ni las
 //es flechas pasan por ellas.
 //en The ones not on the list: only by console (vertikis.style.evil(), …) or by their address
-//en (#evil, #xmas, #halloween). Neither the double-click, nor «Prev» and «Next», nor the
+//en (#evil, #xmas, #halloween, #lava). Neither the double-click, nor «Prev» and «Next», nor the
 //en arrow keys go through them.
-const HIDDEN = ['evil', 'xmas', 'halloween'];
+const HIDDEN = ['evil', 'xmas', 'halloween', 'lava'];
 const currentMode = () =>
   lava ? 'lava' : evil ? 'evil' : xmas ? 'xmas' : halloween ? 'halloween' : riso ? 'riso' : yugop ? 'yugop' : wire ? 'wire' : pixel ? 'pixel' : 'normal';
 for (const name of [...MODES, ...HIDDEN]) {
