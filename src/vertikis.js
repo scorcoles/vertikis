@@ -1248,9 +1248,11 @@ window.vertikis = {
     //es Si la página tiene dónde ([data-mode-name]), el nombre de la que está puesta.
     //en If the page has a place for it ([data-mode-name]), the name of the one that's on.
     for (const el of document.querySelectorAll('[data-mode-name]')) el.textContent = name;
-    //es Las ocultas (evil, xmas, halloween) no van en la dirección: solo salen por consola.
-    //en The hidden ones (evil, xmas, halloween) don't go in the address: they only come out by console.
-    const hash = name === 'normal' || HIDDEN.includes(name) ? '' : `#${name}`;
+    //es Las ocultas también (#evil, #xmas, #halloween): así se pueden ver en el móvil, donde
+    //es no hay consola.
+    //en The hidden ones too (#evil, #xmas, #halloween): that way they can be seen on a phone,
+    //en where there's no console.
+    const hash = name === 'normal' ? '' : `#${name}`;
     if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
     return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, wire: '⌗ wire', yugop: '+ yugop', riso: '◐ riso', evil: '😈 evil', xmas: '🎄 xmas', halloween: '👻 halloween' }[name];
   },
@@ -1268,10 +1270,12 @@ window.vertikis = {
 //es «wire» va siempre el último.
 //en «wire» always goes last.
 const MODES = ['normal', 'pixel', 'yugop', 'riso', 'wire'];
-//es Las que no están en la lista: solo por consola (vertikis.style.evil(), …xmas()). Ni el
-//es doble clic, ni «Prev» y «Next», ni las flechas pasan por ellas.
-//en The ones not on the list: console only (vertikis.style.evil(), …xmas()). Neither the
-//en double-click, nor «Prev» and «Next», nor the arrow keys go through them.
+//es Las que no están en la lista: solo por consola (vertikis.style.evil(), …) o con su
+//es dirección (#evil, #xmas, #halloween). Ni el doble clic, ni «Prev» y «Next», ni las
+//es flechas pasan por ellas.
+//en The ones not on the list: only by console (vertikis.style.evil(), …) or by their address
+//en (#evil, #xmas, #halloween). Neither the double-click, nor «Prev» and «Next», nor the
+//en arrow keys go through them.
 const HIDDEN = ['evil', 'xmas', 'halloween'];
 const currentMode = () =>
   evil ? 'evil' : xmas ? 'xmas' : halloween ? 'halloween' : riso ? 'riso' : yugop ? 'yugop' : wire ? 'wire' : pixel ? 'pixel' : 'normal';
@@ -1279,16 +1283,18 @@ for (const name of [...MODES, ...HIDDEN]) {
   window.vertikis.style[name] = () => window.vertikis.mode(currentMode() === name && name !== 'normal' ? 'normal' : name);
 }
 
-//es Al abrir una dirección con #pixel, #yugop, #riso o #wire (o al cambiarla a mano), se pone esa
+//es Al abrir una dirección con #pixel, #yugop, #riso, #wire, #evil, #xmas o #halloween (o al
+//es cambiarla a mano), se pone esa
 //es visualización. Va en una microtarea: cuando el escenario ya está montado.
-//en Opening an address with #pixel, #yugop, #riso or #wire (or changing it by hand) switches to that
+//en Opening an address with #pixel, #yugop, #riso, #wire, #evil, #xmas or #halloween (or changing it
+//en by hand) switches to that
 //en visualisation. It runs in a microtask: once the stage is set up.
 const modeFromHash = () => {
   //es «blueprint» era el nombre antiguo de «wire»: los enlaces de antes siguen funcionando.
   //en «blueprint» was the old name for «wire»: older links keep working.
   const asked = decodeURIComponent(location.hash.slice(1));
   const name = asked === 'blueprint' ? 'wire' : asked;
-  window.vertikis.mode(MODES.includes(name) ? name : 'normal');
+  window.vertikis.mode(MODES.includes(name) || HIDDEN.includes(name) ? name : 'normal');
 };
 queueMicrotask(modeFromHash);
 
@@ -1977,12 +1983,12 @@ function risoGrain() {
 }
 
 //es =========================================================================================
-//es Extra · Evil (solo por consola: vertikis.style.evil()): de noche, casi negros, con un filo
+//es Extra · Evil (por consola, vertikis.style.evil(), o #evil): de noche, casi negros, con un filo
 //es rojo, cuernecitos rojos, ojos en cruz y una sonrisa cosida en rojo neón que brilla, sobre
 //es un fondo negro.
 //es =========================================================================================
 //en =========================================================================================
-//en Extra · Evil (console only: vertikis.style.evil()): at night, nearly black, with a red
+//en Extra · Evil (by console, vertikis.style.evil(), or #evil): at night, nearly black, with a red
 //en rim, little red horns, crossed-out eyes and a stitched grin in glowing neon red, on a
 //en black background.
 //en =========================================================================================
@@ -2140,11 +2146,11 @@ function evilFace(c, rot, now) {
 }
 
 //es =========================================================================================
-//es Extra · Xmas (solo por consola: vertikis.style.xmas()): colores de Navidad, un gorro rojo
+//es Extra · Xmas (por consola, vertikis.style.xmas(), o #xmas): colores de Navidad, un gorro rojo
 //es con borde y pompón blancos y nieve que cae por detrás.
 //es =========================================================================================
 //en =========================================================================================
-//en Extra · Xmas (console only: vertikis.style.xmas()): Christmas colours, a red hat with a
+//en Extra · Xmas (by console, vertikis.style.xmas(), or #xmas): Christmas colours, a red hat with a
 //en white brim and bobble, and snow falling behind.
 //en =========================================================================================
 
@@ -2305,13 +2311,15 @@ function xmasSnow() {
 }
 
 //es =========================================================================================
-//es Extra · Halloween (solo por consola: vertikis.style.halloween()): fantasmitas negros, con
+//es Extra · Halloween (por consola, vertikis.style.halloween(), o
+//es #halloween): fantasmitas negros, con
 //es la cabeza redonda, una falda ondulada que se mueve y dos ojos blancos en píldora. Los
 //es fantasmas vuelan: no tienen gravedad y van a la deriva, cada uno a su aire. En el móvil,
 //es inclinarlo sí los empuja, pero poco.
 //es =========================================================================================
 //en =========================================================================================
-//en Extra · Halloween (console only: vertikis.style.halloween()): little black ghosts, with a
+//en Extra · Halloween (by console, vertikis.style.halloween(), or
+//en #halloween): little black ghosts, with a
 //en round head, a wavy skirt that moves and two white pill-shaped eyes. Ghosts fly: they have
 //en no gravity and drift about, each its own way. On a phone, tilting it does push them, but
 //en only a little.

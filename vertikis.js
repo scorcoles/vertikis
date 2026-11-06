@@ -913,8 +913,9 @@ window.vertikis = {
     // Sin historial: cambiar de modo no llena el botón «atrás».
     // Si la página tiene dónde ([data-mode-name]), el nombre de la que está puesta.
     for (const el of document.querySelectorAll('[data-mode-name]')) el.textContent = name;
-    // Las ocultas (evil, xmas, halloween) no van en la dirección: solo salen por consola.
-    const hash = name === 'normal' || HIDDEN.includes(name) ? '' : `#${name}`;
+    // Las ocultas también (#evil, #xmas, #halloween): así se pueden ver en el móvil, donde
+    // no hay consola.
+    const hash = name === 'normal' ? '' : `#${name}`;
     if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
     return { normal: '● smooth', pixel: `▦ pixel ×${pixel}`, wire: '⌗ wire', yugop: '+ yugop', riso: '◐ riso', evil: '😈 evil', xmas: '🎄 xmas', halloween: '👻 halloween' }[name];
   },
@@ -927,8 +928,9 @@ window.vertikis = {
 // Para añadir una: su nombre aquí y lo que dibuje en draw().
 // «wire» va siempre el último.
 const MODES = ['normal', 'pixel', 'yugop', 'riso', 'wire'];
-// Las que no están en la lista: solo por consola (vertikis.style.evil(), …xmas()). Ni el
-// doble clic, ni «Prev» y «Next», ni las flechas pasan por ellas.
+// Las que no están en la lista: solo por consola (vertikis.style.evil(), …) o con su
+// dirección (#evil, #xmas, #halloween). Ni el doble clic, ni «Prev» y «Next», ni las
+// flechas pasan por ellas.
 const HIDDEN = ['evil', 'xmas', 'halloween'];
 const currentMode = () =>
   evil ? 'evil' : xmas ? 'xmas' : halloween ? 'halloween' : riso ? 'riso' : yugop ? 'yugop' : wire ? 'wire' : pixel ? 'pixel' : 'normal';
@@ -936,13 +938,14 @@ for (const name of [...MODES, ...HIDDEN]) {
   window.vertikis.style[name] = () => window.vertikis.mode(currentMode() === name && name !== 'normal' ? 'normal' : name);
 }
 
-// Al abrir una dirección con #pixel, #yugop, #riso o #wire (o al cambiarla a mano), se pone esa
+// Al abrir una dirección con #pixel, #yugop, #riso, #wire, #evil, #xmas o #halloween (o al
+// cambiarla a mano), se pone esa
 // visualización. Va en una microtarea: cuando el escenario ya está montado.
 const modeFromHash = () => {
   // «blueprint» era el nombre antiguo de «wire»: los enlaces de antes siguen funcionando.
   const asked = decodeURIComponent(location.hash.slice(1));
   const name = asked === 'blueprint' ? 'wire' : asked;
-  window.vertikis.mode(MODES.includes(name) ? name : 'normal');
+  window.vertikis.mode(MODES.includes(name) || HIDDEN.includes(name) ? name : 'normal');
 };
 queueMicrotask(modeFromHash);
 
@@ -1536,7 +1539,7 @@ function risoGrain() {
 }
 
 // =========================================================================================
-// Extra · Evil (solo por consola: vertikis.style.evil()): de noche, casi negros, con un filo
+// Extra · Evil (por consola, vertikis.style.evil(), o #evil): de noche, casi negros, con un filo
 // rojo, cuernecitos rojos, ojos en cruz y una sonrisa cosida en rojo neón que brilla, sobre
 // un fondo negro.
 // =========================================================================================
@@ -1679,7 +1682,7 @@ function evilFace(c, rot, now) {
 }
 
 // =========================================================================================
-// Extra · Xmas (solo por consola: vertikis.style.xmas()): colores de Navidad, un gorro rojo
+// Extra · Xmas (por consola, vertikis.style.xmas(), o #xmas): colores de Navidad, un gorro rojo
 // con borde y pompón blancos y nieve que cae por detrás.
 // =========================================================================================
 
@@ -1823,7 +1826,8 @@ function xmasSnow() {
 }
 
 // =========================================================================================
-// Extra · Halloween (solo por consola: vertikis.style.halloween()): fantasmitas negros, con
+// Extra · Halloween (por consola, vertikis.style.halloween(), o
+// #halloween): fantasmitas negros, con
 // la cabeza redonda, una falda ondulada que se mueve y dos ojos blancos en píldora. Los
 // fantasmas vuelan: no tienen gravedad y van a la deriva, cada uno a su aire. En el móvil,
 // inclinarlo sí los empuja, pero poco.
