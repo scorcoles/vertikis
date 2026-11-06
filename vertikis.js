@@ -745,6 +745,7 @@ canvas.addEventListener('pointerdown', (e) => {
   press = grabbed && { cell: grabbed, t: performance.now(), x: e.clientX, y: e.clientY };
   if (!grabbed && grabWeed(e)) return;
   if (!grabbed) return;
+  if (evil) evilLaugh(grabbed.r);
   grabOffset = { x: e.clientX - grabbed.cx, y: e.clientY - grabbed.cy };
   // El agarrado pasa a dibujarse encima de los demás.
   cells = [...cells.filter((c) => c !== grabbed), grabbed];
@@ -1536,8 +1537,9 @@ function risoGrain() {
 let evil = false;
 // Gris muy oscuro con un poco de volumen: luz, cuerpo y sombra del degradado.
 const EVIL_BODY = ['#333333', '#1a1a1a', '#0b0b0b'];
-const EVIL_RIM = '#d81e1e';
+// El filo, del mismo rojo neón que los ojos y la boca.
 const EVIL_NEON = '#ff2a1f';
+const EVIL_RIM = EVIL_NEON;
 const EVIL_GLOW = 'rgba(255, 30, 20, 0.9)';
 const EVIL_HORN = ['#ff3b2f', '#9c0f0b'];
 const EVIL_PAPER = ['#141414', '#050505'];
@@ -1613,6 +1615,41 @@ function evilHorns(c) {
     ctx.fill();
   }
   ctx.restore();
+}
+
+// Al agarrarlos, una risita malvada: «je, je, je», tres golpes graves que bajan, con
+// una onda de sierra (áspera) filtrada como una voz. Los grandes, más graves. Si se agarran
+// muy seguidos, no se pisa: una risa cada 0,4 s como mucho.
+let lastLaugh = 0;
+function evilLaugh(size) {
+  const now = performance.now();
+  if (now - lastLaugh < 400) return;
+  lastLaugh = now;
+  try {
+    const a = ac();
+    const t0 = a.currentTime;
+    const base = 150 - Math.min(70, size / 3);
+    const voice = a.createBiquadFilter();
+    voice.type = 'bandpass';
+    voice.frequency.value = 650;
+    voice.Q.value = 1.2;
+    voice.connect(master);
+    for (let k = 0; k < 3; k++) {
+      const t = t0 + k * 0.15;
+      const f = base * (1 - k * 0.08);
+      const osc = a.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(f * 1.15, t);
+      osc.frequency.exponentialRampToValueAtTime(f * 0.85, t + 0.12);
+      const gain = a.createGain();
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.32, t + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+      osc.connect(gain).connect(voice);
+      osc.start(t);
+      osc.stop(t + 0.14);
+    }
+  } catch {}
 }
 
 // La cara, en neón: cada trazo con un resplandor rojo alrededor.
