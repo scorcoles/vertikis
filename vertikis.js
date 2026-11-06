@@ -363,6 +363,7 @@ function draw() {
     g.addColorStop(1, pixel ? c.shadePx : c.shade);
     ctx.fillStyle = g;
     if (yugop) ctx.fillStyle = '#000';
+    if (evil) evilHorns(c);
     if (evil) ctx.fillStyle = evilFill(c);
     if (xmas) ctx.fillStyle = xmasFill(c);
     // Paso 3 · Contorno suave: curvas que pasan por los puntos medios del anillo.
@@ -377,7 +378,6 @@ function draw() {
     ctx.fill();
     if (xmas) xmasHat(c);
     if (evil) evilRim();
-    if (evil) evilHorns(c);
   }
 
   // Paso 12 · Caras: dos ojos que miran al puntero y parpadean, y una sonrisa que se curva
@@ -1566,37 +1566,49 @@ function evilRim() {
   ctx.stroke();
 }
 
-// Dos cuernecitos rojos curvos hacia arriba y un poco hacia fuera, girados como la cara y
-// clavados en lo más alto del cuerpo (bajan cuando se aplasta, como el gorro de xmas).
+// Dos cuernecitos rojos que salen del borde, en diagonal hacia arriba y hacia fuera, y
+// se curvan un poco hacia arriba. Se dibujan antes que el cuerpo: la base queda escondida
+// detrás del contorno (y de su filo rojo). Se colocan en el borde tal como está ahora, así
+// que siguen al cuerpo cuando se aplasta, y giran como la cara.
+const HORN = { at: 0.72, up: 0.45, length: 0.22, width: 0.15 };
+
 function evilHorns(c) {
   const s = c.r;
   const rot = Math.atan2(Math.sin(c.angle - c.base), Math.cos(c.angle - c.base)) * 0.35;
   const cos = Math.cos(rot);
   const sin = Math.sin(rot);
-  let top = 0;
-  for (let i = 0; i < POINTS; i++) {
-    const ly = -(c.x[i] - c.cx) * sin + (c.y[i] - c.cy) * cos;
-    if (ly < top) top = ly;
-  }
-  const y = top + s * 0.16;
-  const w = s * 0.2;
-  const h = s * 0.34;
+  const h = s * HORN.length;
+  const w = s * HORN.width;
   ctx.save();
   ctx.translate(c.cx, c.cy);
   ctx.rotate(rot);
   for (const side of [-1, 1]) {
-    const x = side * s * 0.4;
-    const tipX = x + side * s * 0.1;
-    const tipY = y - h;
-    // Luz por el lado de dentro y sombra por fuera.
-    const g = ctx.createLinearGradient(x - side * w / 2, 0, x + side * w / 2, 0);
+    // Hacia dónde sale (u) y lo que mide el cuerpo en esa dirección (edge).
+    const a = side * HORN.at;
+    const ux = Math.sin(a);
+    const uy = -Math.cos(a);
+    let edge = 0;
+    for (let i = 0; i < POINTS; i++) {
+      const lx = (c.x[i] - c.cx) * cos + (c.y[i] - c.cy) * sin;
+      const ly = -(c.x[i] - c.cx) * sin + (c.y[i] - c.cy) * cos;
+      edge = Math.max(edge, lx * ux + ly * uy);
+    }
+    const bx = ux * (edge - s * 0.04);
+    const by = uy * (edge - s * 0.04);
+    // La punta, más hacia arriba que la base.
+    const t = a * HORN.up;
+    const tipX = bx + Math.sin(t) * h;
+    const tipY = by - Math.cos(t) * h;
+    const nx = -uy;
+    const ny = ux;
+    const g = ctx.createLinearGradient(bx - nx * w * side, by - ny * w * side, bx + nx * w * side, by + ny * w * side);
     g.addColorStop(0, EVIL_HORN[0]);
     g.addColorStop(1, EVIL_HORN[1]);
     ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.moveTo(x - w / 2, y);
-    ctx.quadraticCurveTo(x - w / 2 - side * s * 0.04, y - h * 0.55, tipX, tipY);
-    ctx.quadraticCurveTo(x + w / 2 - side * s * 0.06, y - h * 0.5, x + w / 2, y);
+    ctx.moveTo(bx - (nx * w) / 2, by - (ny * w) / 2);
+    ctx.quadraticCurveTo(bx - (nx * w) / 2 + ux * h * 0.6, by - (ny * w) / 2 + uy * h * 0.6, tipX, tipY);
+    ctx.quadraticCurveTo(bx + (nx * w) / 2 + ux * h * 0.5, by + (ny * w) / 2 + uy * h * 0.5, bx + (nx * w) / 2, by + (ny * w) / 2);
     ctx.closePath();
     ctx.fill();
   }
