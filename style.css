@@ -52,6 +52,53 @@ canvas.is-dragging {
   pointer-events: auto;
 }
 
+/* Compartir (arriba a la derecha): una foto de cómo están ahora los vertikis. El icono,
+   de 20px con 4px de relleno, a media luz hasta que pasas por encima. Del color del pie
+   en cada modo (más abajo, junto a los colores del pie). */
+.share {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  display: block;
+  margin: 0;
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: #000;
+  line-height: 0;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 200ms ease;
+}
+
+.share[hidden] {
+  display: none;
+}
+
+.share:hover,
+.share:focus-visible {
+  opacity: 1;
+}
+
+.share:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.share svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* En el móvil, un poco más grande, para el dedo. */
+@media (max-width: 47.99rem) {
+  .share svg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
 /* Los «·» que separan las frases, con aire fijo a cada lado (no dependen de los espacios
    del HTML, que se pierden o se encogen según el salto de línea y la fuente). */
 .credit__sep {
@@ -106,7 +153,8 @@ canvas.is-dragging {
   image-rendering: pixelated;
 }
 
-.is-pixel .credit {
+.is-pixel .credit,
+.is-pixel .share {
   color: #e9e7e0;
 }
 
@@ -120,7 +168,8 @@ canvas.is-dragging {
   background: #eee;
 }
 
-.is-wire .credit {
+.is-wire .credit,
+.is-wire .share {
   color: #333;
 }
 
@@ -132,7 +181,8 @@ canvas.is-dragging {
 /* Modo yugop (vertikis.mode('yugop') o #yugop): cuerpos negros sobre blanco, como la home de
    yugop.com. El pie se fusiona por diferencia: blanco sobre los cuerpos, negro sobre el
    blanco, y siempre se lee. */
-.is-yugop .credit {
+.is-yugop .credit,
+.is-yugop .share {
   color: #fff;
   mix-blend-mode: difference;
 }
@@ -144,7 +194,8 @@ canvas.is-dragging {
 
 /* Halloween (vertikis.style.halloween()): fantasmas negros sobre blanco. El pie, como en
    yugop: por diferencia, blanco sobre los fantasmas y negro sobre el fondo. */
-.is-halloween .credit {
+.is-halloween .credit,
+.is-halloween .share {
   color: #fff;
   mix-blend-mode: difference;
 }
@@ -159,7 +210,8 @@ canvas.is-dragging {
   background: #f3efe6;
 }
 
-.is-riso .credit {
+.is-riso .credit,
+.is-riso .share {
   color: #0078bf;
 }
 
@@ -187,7 +239,8 @@ canvas.is-dragging {
   background: #22082f;
 }
 
-.is-lava .credit {
+.is-lava .credit,
+.is-lava .share {
   color: #22082f;
 }
 
@@ -202,7 +255,8 @@ canvas.is-dragging {
   background: #d0120b;
 }
 
-.is-evil .credit {
+.is-evil .credit,
+.is-evil .share {
   color: #fff;
 }
 

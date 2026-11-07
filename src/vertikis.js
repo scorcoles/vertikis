@@ -3202,6 +3202,78 @@ function tumbleweed(now) {
 }
 //<<
 
+//>> 17
+//es =========================================================================================
+//es Extra · Compartir: una foto de cómo están ahora los vertikis
+//es =========================================================================================
+//en =========================================================================================
+//en Extra · Share: a photo of how the vertikis are right now
+//en =========================================================================================
+//es El botón [data-share] (arriba a la derecha) abre el menú de compartir del sistema con una
+//es foto del momento: el canvas sobre el fondo de la página, con «VERTIK.NET» en una esquina.
+//es Donde no se puede compartir una imagen (Firefox de escritorio, algunas ventanas de
+//es incógnito), el botón no aparece. En el móvil, la foto se corta en el suelo: por debajo va
+//es el pie, que es HTML y no sale en el canvas, y quedaría una franja vacía.
+//en The [data-share] button (top right) opens the system share menu with a photo of the
+//en moment: the canvas over the page background, with «VERTIK.NET» in a corner. Where an
+//en image can't be shared (desktop Firefox, some private windows), the button doesn't show.
+//en On phones the photo is cut at the floor: below it is the footer, which is HTML and isn't
+//en on the canvas, and it would leave an empty strip.
+function snapshot() {
+  const k = canvas.width / W;
+  const out = document.createElement('canvas');
+  out.width = canvas.width;
+  out.height = Math.min(canvas.height, Math.ceil(floor * k));
+  const o = out.getContext('2d');
+  //es El fondo, el de la página en el modo que esté puesto (en varios modos lo pone el CSS,
+  //es no el canvas).
+  //en The background, the page's in whatever mode is on (in several modes it's set by the
+  //en CSS, not the canvas).
+  o.fillStyle = getComputedStyle(document.body).backgroundColor || '#fff';
+  o.fillRect(0, 0, out.width, out.height);
+  o.drawImage(canvas, 0, 0);
+  o.scale(k, k);
+  const size = Math.max(11, Math.min(W, H) * 0.03);
+  o.font = `${size}px ui-monospace, Menlo, Consolas, monospace`;
+  o.textBaseline = 'top';
+  const m = Math.max(12, size * 1.2);
+  o.fillStyle = '#8a8a8a';
+  o.fillText('VERTIK.NET', m, m);
+  //es Síncrono (sin toBlob) para no perder el gesto del usuario antes de compartir.
+  //en Synchronous (no toBlob) so the user's gesture isn't lost before sharing.
+  const bin = atob(out.toDataURL('image/png').split(',')[1]);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new File([bytes], 'vertikis.png', { type: 'image/png' });
+}
+
+//es ¿Este navegador sabe compartir imágenes? Se pregunta con una imagen de prueba.
+//en Can this browser share images? It's asked with a test image.
+const shareButton = document.querySelector('[data-share]');
+const canShareImages = (() => {
+  try {
+    const probe = new File([new Uint8Array(1)], 'probe.png', { type: 'image/png' });
+    return !!navigator.canShare?.({ files: [probe] });
+  } catch {
+    return false;
+  }
+})();
+if (shareButton) {
+  shareButton.hidden = !canShareImages;
+  shareButton.addEventListener('click', async () => {
+    //es Solo la imagen: con título o texto, «Copiar» de Chrome guarda dos cosas.
+    //en Just the image: with a title or text, Chrome's «Copy» stores two things.
+    try {
+      await navigator.share({ files: [snapshot()] });
+    } catch (err) {
+      //es Cerrar el menú sin compartir no es un fallo; cualquier otro error sí: fuera botón.
+      //en Closing the menu without sharing isn't a failure; any other error is: button gone.
+      if (err?.name !== 'AbortError') shareButton.hidden = true;
+    }
+  });
+}
+//<<
+
 //es =========================================================================================
 //es ¡Arrancamos!
 //es =========================================================================================

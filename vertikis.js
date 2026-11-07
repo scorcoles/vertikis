@@ -2614,6 +2614,62 @@ function tumbleweed(now) {
 }
 
 // =========================================================================================
+// Extra · Compartir: una foto de cómo están ahora los vertikis
+// =========================================================================================
+// El botón [data-share] (arriba a la derecha) abre el menú de compartir del sistema con una
+// foto del momento: el canvas sobre el fondo de la página, con «VERTIK.NET» en una esquina.
+// Donde no se puede compartir una imagen (Firefox de escritorio, algunas ventanas de
+// incógnito), el botón no aparece. En el móvil, la foto se corta en el suelo: por debajo va
+// el pie, que es HTML y no sale en el canvas, y quedaría una franja vacía.
+function snapshot() {
+  const k = canvas.width / W;
+  const out = document.createElement('canvas');
+  out.width = canvas.width;
+  out.height = Math.min(canvas.height, Math.ceil(floor * k));
+  const o = out.getContext('2d');
+  // El fondo, el de la página en el modo que esté puesto (en varios modos lo pone el CSS,
+  // no el canvas).
+  o.fillStyle = getComputedStyle(document.body).backgroundColor || '#fff';
+  o.fillRect(0, 0, out.width, out.height);
+  o.drawImage(canvas, 0, 0);
+  o.scale(k, k);
+  const size = Math.max(11, Math.min(W, H) * 0.03);
+  o.font = `${size}px ui-monospace, Menlo, Consolas, monospace`;
+  o.textBaseline = 'top';
+  const m = Math.max(12, size * 1.2);
+  o.fillStyle = '#8a8a8a';
+  o.fillText('VERTIK.NET', m, m);
+  // Síncrono (sin toBlob) para no perder el gesto del usuario antes de compartir.
+  const bin = atob(out.toDataURL('image/png').split(',')[1]);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new File([bytes], 'vertikis.png', { type: 'image/png' });
+}
+
+// ¿Este navegador sabe compartir imágenes? Se pregunta con una imagen de prueba.
+const shareButton = document.querySelector('[data-share]');
+const canShareImages = (() => {
+  try {
+    const probe = new File([new Uint8Array(1)], 'probe.png', { type: 'image/png' });
+    return !!navigator.canShare?.({ files: [probe] });
+  } catch {
+    return false;
+  }
+})();
+if (shareButton) {
+  shareButton.hidden = !canShareImages;
+  shareButton.addEventListener('click', async () => {
+    // Solo la imagen: con título o texto, «Copiar» de Chrome guarda dos cosas.
+    try {
+      await navigator.share({ files: [snapshot()] });
+    } catch (err) {
+      // Cerrar el menú sin compartir no es un fallo; cualquier otro error sí: fuera botón.
+      if (err?.name !== 'AbortError') shareButton.hidden = true;
+    }
+  });
+}
+
+// =========================================================================================
 // ¡Arrancamos!
 // =========================================================================================
 
