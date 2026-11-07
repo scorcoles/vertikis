@@ -315,3 +315,22 @@ canvas.is-dragging {
     padding-right: 2px;
   }
 }
+
+/* En escritorio, «Prev · Next» alineado a la derecha: el pie llega hasta el borde derecho y
+   ellos se van a su final; el «·» que los separaba del resto sobra. */
+@media (min-width: 64rem) and (pointer: fine) {
+  .credit {
+    right: 8px;
+  }
+
+  .credit__modes {
+    float: right;
+    margin-left: 1.2em;
+    /* (A la altura del texto: la etiqueta del nombre, con su relleno, lo baja un poco.) */
+    margin-top: 2px;
+  }
+
+  .credit__sep:has(+ wbr + .credit__modes) {
+    display: none;
+  }
+}
