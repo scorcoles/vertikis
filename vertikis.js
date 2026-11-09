@@ -591,7 +591,17 @@ function ac() {
     audio = new AudioContext();
     master = audio.createGain();
     master.gain.value = VOLUME;
-    master.connect(audio.destination);
+    // Sin el foco de la ventana (otra pestaña, otra aplicación) se calla; al volver, suena.
+    const focus = audio.createGain();
+    focus.gain.value = document.hasFocus() ? 1 : 0;
+    master.connect(focus).connect(audio.destination);
+    const followFocus = () => {
+      const on = document.hasFocus() && !document.hidden;
+      focus.gain.setTargetAtTime(on ? 1 : 0, audio.currentTime, 0.12);
+    };
+    addEventListener('blur', followFocus);
+    addEventListener('focus', followFocus);
+    document.addEventListener('visibilitychange', followFocus);
   }
   if (audio.state === 'suspended') audio.resume();
   return audio;
